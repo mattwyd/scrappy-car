@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
+import Header from './components/Header';
+import HeroSection from './components/HeroSection';
+import FeaturesSection from './components/FeaturesSection';
+import Footer from './components/Footer';
 
 function App() {
-
-  
-
   return (
-    <h1> under construction </h1>
+    <div className="h-screen overflow-hidden">
+      <Header />
+      <HeroSection />
+      <FeaturesSection />
+      <Footer />
+    </div>
   );
 }
+
 export default App;
