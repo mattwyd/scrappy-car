@@ -1,4 +1,3 @@
-import React from 'react';
 import { Typography, Button, Container } from '@mui/material';
 
 function HeroSection() {
