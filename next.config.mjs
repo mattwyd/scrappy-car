@@ -11,7 +11,7 @@ const nextConfig = {
     // skipTrailingSlashRedirect: true,
    
     // Optional: Change the output directory `out` -> `dist`
-    // distDir: 'dist',
-  }
-   
-  module.exports = nextConfig
+    distDir: 'dist', // Uncommented to change the output directory to 'dist'
+}
+
+export default nextConfig;
