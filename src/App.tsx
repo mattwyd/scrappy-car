@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Car, DollarSign, Recycle, Phone, Mail, MapPin } from "lucide-react"
 
 
-export default function Home() {
+export default function App() {
   return (
     <div className="flex flex-col min-h-screen mx-auto">
       <header className="px-4 lg:px-6 h-14 flex items-center">
