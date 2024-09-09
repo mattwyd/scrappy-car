@@ -19,7 +19,8 @@
     "react-dom": "^18.3.1",
     "shadcn-ui": "^0.2.3",
     "tailwind-merge": "^2.5.2",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "terser": "^5.31.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
