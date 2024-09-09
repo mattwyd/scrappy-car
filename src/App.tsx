@@ -7,22 +7,23 @@ const email_address: string = "quote@scrappycar.ca";
 export default function App() {
   return (
     <div className="flex flex-col min-h-screen mx-auto">
+      <title>scrapycar.ca</title>
       <header className="px-4 lg:px-6 h-14 flex items-center">
         <a className="flex items-center justify-center" href="#">
           <Recycle className="h-6 w-6 text-green-500" />
           <span className="ml-2 text-2xl font-bold text-gray-800">Scrappy Car</span>
         </a>
         <nav className="ml-auto flex gap-4 sm:gap-6">
-          <a className="text-sm font-medium hover:underline underline-offset-4" href="#services">
+          <a className="hidden sm:block text-sm font-medium hover:underline underline-offset-4" href="#services">
             Services
           </a>
-          <a className="text-sm font-medium hover:underline underline-offset-4" href="#how-it-works">
+          <a className="hidden sm:block text-sm font-medium hover:underline underline-offset-4" href="#how-it-works">
             How It Works
           </a>
-          <a className="text-sm font-medium hover:underline underline-offset-4" href="#areas">
+          <a className="hidden sm:block text-sm font-medium hov er:underline underline-offset-4" href="#areas">
             Areas We Serve
           </a>
-          <a className="text-sm font-medium hover:underline underline-offset-4" href="#contact">
+          <a className="hidden sm:block text-sm font-medium hover:underline underline-offset-4" href="#contact">
             Contact
           </a>
         </nav>
