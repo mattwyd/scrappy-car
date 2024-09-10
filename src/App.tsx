@@ -7,7 +7,6 @@ const email_address: string = "quote@scrappycar.ca";
 export default function App() {
   return (
     <div className="flex flex-col min-h-screen mx-auto">
-      <title>scrapycar.ca</title>
       <header className="px-4 lg:px-6 h-14 flex items-center">
         <a className="flex items-center justify-center" href="#">
           <Recycle className="h-6 w-6 text-green-500" />
@@ -37,7 +36,7 @@ export default function App() {
                   Turn Your Old Car into Cash
                 </h1>
                 <p className="mx-auto max-w-[700px] text-gray-600 md:text-xl flex items-center justify-center">
-                Fast, easy, and environmentally friendly scrap car removal service. Get paid on the spot! <Banknote className="ml-2 h-6 w-6 text-green-600" />
+                Fast, easy, and environmentally friendly scrap car removal service. Get paid on the spot!
                 </p>
               </div>
               <div className="w-full max-w-sm space-y-2">
