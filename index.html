@@ -8,6 +8,18 @@
   <meta name="keywords" content="scrap car removal, junk car, cash for cars, Scarborough, Port Union, West Rouge, Rouge Hill, Highland Creek, East Toronto, GTA, free towing, same day pickup">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://scrappycar.ca/">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <script defer src="/_vercel/insights/script.js"></script>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18023473103"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-18023473103');
+  </script>
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
@@ -223,6 +235,45 @@
     }
     .map-wrapper iframe { width: 100%; height: 100%; border: 0; display: block; }
 
+    /* ── TEAM ── */
+    .team-bg { background: var(--bg2); }
+    .team-grid {
+      display: grid; gap: 2rem;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      max-width: 720px;
+    }
+    .team-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      transition: border-color .25s, transform .2s;
+    }
+    .team-card:hover { border-color: var(--green); transform: translateY(-3px); }
+    .team-photo {
+      width: 100%; aspect-ratio: 4/5; object-fit: cover; object-position: top;
+      display: block; filter: grayscale(20%) contrast(1.05);
+    }
+    .team-photo-placeholder {
+      width: 100%; aspect-ratio: 4/5;
+      background: var(--bg); display: flex; align-items: center; justify-content: center;
+      color: var(--border); font-size: 4rem;
+    }
+    .team-info { padding: 1.25rem; }
+    .team-info h3 { color: var(--white); font-size: 1.15rem; margin-bottom: .2rem; }
+    .team-info .team-role { color: var(--green); font-size: .8rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: .75rem; }
+    .team-info p { color: var(--muted); font-size: .9rem; line-height: 1.6; }
+
+    /* ── TEAM TOGGLE ── */
+    .team-details { border: none; background: none; }
+    .team-summary {
+      display: inline-flex; align-items: center; gap: .4rem;
+      color: var(--muted); font-size: .9rem; cursor: pointer;
+      list-style: none; padding: 0;
+      transition: color .2s;
+    }
+    .team-summary::-webkit-details-marker { display: none; }
+    .team-summary:hover { color: var(--green); }
+    .team-details[open] .team-summary { color: var(--green); }
+
     /* ── FAQ ── */
     .faq-bg { background: var(--bg2); }
     .faq-list { display: flex; flex-direction: column; gap: .75rem; max-width: 760px; }
@@ -303,6 +354,35 @@
     .text-center { text-align: center; }
     .text-center .subtitle { margin-left: auto; margin-right: auto; }
 
+    .services-photo {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+    .services-photo img {
+      width: 100%;
+      display: block;
+      height: auto;
+      max-height: 420px;
+      object-fit: cover;
+      object-position: center 60%;
+      filter: grayscale(40%) contrast(1.1) brightness(0.75);
+    }
+    .services-photo::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to right,
+        rgba(57,211,83,.12) 0%,
+        transparent 50%,
+        rgba(15,15,15,.4) 100%
+      );
+      pointer-events: none;
+    }
+
     @media (max-width: 480px) {
       .hero { padding: 3rem 1rem 2.5rem; }
       .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
@@ -345,36 +425,29 @@
     <p class="section-label">What We Do</p>
     <h2>Our Services</h2>
     <p class="subtitle">Whether your car runs or not, we'll take it off your hands and put cash in your pocket — fast.</p>
+    <div class="services-photo">
+      <img src="truck.jpg" alt="Scrappy Car tow truck picking up junk car in Scarborough">
+    </div>
     <div class="services-grid">
       <div class="service-card">
         <div class="service-icon">🚗</div>
         <h3>Scrap Car Removal</h3>
-        <p>We remove your scrap vehicle quickly and responsibly. Running or not, we haul it away at no cost to you.</p>
+        <p>We pick up your scrap vehicle and haul it away. Running or not, we take it off your hands fast.</p>
       </div>
       <div class="service-card">
         <div class="service-icon">💵</div>
         <h3>Cash for Junk Cars</h3>
-        <p>Get a fair, competitive cash offer for your junk car on the spot. No haggling, no hidden fees.</p>
+        <p>We make you a cash offer on the spot. No hidden fees, no waiting around for a cheque.</p>
       </div>
       <div class="service-card">
         <div class="service-icon">🚛</div>
         <h3>Free Towing</h3>
-        <p>Our tow truck comes to you — completely free. We cover all towing costs so there's nothing out of pocket.</p>
+        <p>Our tow truck comes to you at no charge. Towing is always included in your cash offer.</p>
       </div>
       <div class="service-card">
         <div class="service-icon">⚡</div>
         <h3>Same-Day Pickup</h3>
-        <p>Call us in the morning and your car could be gone by the afternoon. Fast, reliable, hassle-free service.</p>
-      </div>
-      <div class="service-card">
-        <div class="service-icon">🔧</div>
-        <h3>Any Make &amp; Model</h3>
-        <p>Domestic, import, trucks, SUVs, vans — we buy them all, regardless of age, mileage, or damage.</p>
-      </div>
-      <div class="service-card">
-        <div class="service-icon">📋</div>
-        <h3>Paperwork Handled</h3>
-        <p>We take care of the ownership transfer and deregistration paperwork so you don't have to worry about a thing.</p>
+        <p>Call in the morning and your car can be gone the same day. We move fast and show up when we say we will.</p>
       </div>
     </div>
   </div>
@@ -464,6 +537,38 @@
     </div>
   </div>
 </section>
+
+<!-- TEAM -->
+<div class="team-bg" id="team">
+  <div class="container" style="padding: 2rem 1.25rem;">
+    <details class="team-details">
+      <summary class="team-summary">About Us — Marce &amp; Ryan ↓</summary>
+      <div class="team-inner">
+        <p class="section-label" style="margin-top:1.75rem;">Who We Are</p>
+        <h2>Scarborough Born &amp; Raised</h2>
+        <p class="subtitle">We're not a call centre or a national chain. We're two guys from Scarborough who built this business from the ground up.</p>
+        <div class="team-grid">
+          <div class="team-card">
+            <div class="team-photo-placeholder">👤</div>
+            <div class="team-info">
+              <h3>Marce Anthony</h3>
+              <div class="team-role">Co-Owner</div>
+              <p>Scarborough local. Been pulling cars apart since I was a teenager in my dad's driveway. Started Scrappy Car because I knew there was a better way to treat people selling their old cars.</p>
+            </div>
+          </div>
+          <div class="team-card">
+            <div class="team-photo-placeholder">👤</div>
+            <div class="team-info">
+              <h3>Ryan Basalt</h3>
+              <div class="team-role">Co-Owner</div>
+              <p>Grew up in Port Union. I've lived in this neighbourhood my whole life and I take pride in running a business that actually does right by the people in it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+</div>
 
 <!-- FAQ -->
 <section class="faq-bg" id="faq">
@@ -603,6 +708,13 @@
   }, { passive: true });
   scrollBtn.addEventListener('click', function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // Call button conversion tracking
+  document.querySelectorAll('a[href^="tel:"]').forEach(function(a) {
+    a.addEventListener('click', function() {
+      gtag('event', 'conversion', { send_to: 'AW-18023473103' });
+    });
   });
 
   // Smooth anchor nav
