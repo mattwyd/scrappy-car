@@ -19,6 +19,15 @@
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'AW-18023473103');
+    gtag('config', 'G-Y42H4S5V5G');
+  </script>
+  <script>
+    document.addEventListener('click', function(e) {
+      var el = e.target.closest('a[href^="tel:"]');
+      if (el) {
+        gtag('event', 'generate_lead', { event_category: 'phone', event_label: 'phone_click' });
+      }
+    });
   </script>
 
   <!-- Open Graph -->
@@ -713,7 +722,7 @@
   // Call button conversion tracking
   document.querySelectorAll('a[href^="tel:"]').forEach(function(a) {
     a.addEventListener('click', function() {
-      gtag('event', 'conversion', { send_to: 'AW-18023473103' });
+      gtag('event', 'conversion', { send_to: 'AW-18023473103/VeZmCJT3wZ4cEM-_oZJD' });
     });
   });
 
