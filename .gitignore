@@ -1,4 +1,11 @@
+.DS_Store
 .vercel
+.env
+.env.*
+!.env.example
+marketing/infra/.env
+marketing/infra/backups/
+node_modules/
 .claude
 *.HEIC
 *.heic

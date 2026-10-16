@@ -1,0 +1,33 @@
+# Scrappy Car GTM stack on the Mac mini. This file is the source of truth; copy to mini:~/gtm/
+# Editor is private: only reachable through Tailscale Serve at https://mini.zuul-grouper.ts.net:8446
+name: gtm
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PROTOCOL=https
+      - N8N_PROXY_HOPS=1
+      - WEBHOOK_URL=https://${N8N_HOST}:8446/
+      - N8N_EDITOR_BASE_URL=https://${N8N_HOST}:8446/
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - GENERIC_TIMEZONE=America/Toronto
+      - TZ=America/Toronto
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=336
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./backups:/backups
+
+volumes:
+  n8n_data:
+
+# Deploy: mini, user `matt`, folder ~/gtm (holds .env with N8N_ENCRYPTION_KEY, mode 600, back it up).
+# Private editor: Tailscale Serve  https=8446 -> 127.0.0.1:5678  (443 root is used by another service, leave it).
+# Public webhooks (form, Twilio) come later via Cloudflare Tunnel on a separate hostname.

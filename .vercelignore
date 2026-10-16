@@ -1,0 +1,4 @@
+marketing/
+.env
+.env.*
+scripts/

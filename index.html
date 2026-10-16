@@ -11,6 +11,8 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
   <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/track.js"></script>
+  <link rel="stylesheet" href="/offer.css">
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18023473103"></script>
@@ -415,8 +417,8 @@
     <a href="tel:6472044200" class="btn-primary">
       📞 Call Now — (647) 204-4200
     </a>
-    <a href="#how-it-works" class="btn-secondary">
-      How It Works ↓
+    <a href="#offer" class="btn-secondary">
+      Get an Instant Offer ↓
     </a>
   </div>
   <div class="trust-row">
@@ -427,6 +429,170 @@
     <span><span class="dot"></span>Locally Owned</span>
   </div>
 </header>
+
+<!-- INSTANT OFFER (ported from carca.sh; logic in offer.js, styles in offer.css) -->
+<section id="offer">
+  <div class="container text-center">
+    <p class="section-label" style="justify-content:center;">Instant Offer</p>
+    <h2>What's Your Car Worth?</h2>
+    <p class="subtitle">Rather not call? Tell us what you've got and get a cash offer in under a minute. Free towing is always included.</p>
+
+    <div class="calc" id="calc">
+      <div class="calc-steps" id="calcSteps">
+        <span class="cstep on" data-step="1"><i>1</i> Vehicle</span>
+        <span class="cstep" data-step="2"><i>2</i> Condition</span>
+        <span class="cstep" data-step="3"><i>3</i> Contact</span>
+      </div>
+
+      <form id="calcForm" novalidate>
+        <!-- STEP 1 -->
+        <div class="cpane on" data-pane="1">
+          <div class="field">
+            <span class="field-label">Model year</span>
+            <div class="ystep">
+              <button type="button" class="ystep-btn" id="yearDown" aria-label="Older year">&minus;</button>
+              <div class="ystep-val">
+                <span class="ystep-year" id="yearVal">2011</span>
+                <span class="ystep-hint">tap to adjust</span>
+              </div>
+              <button type="button" class="ystep-btn" id="yearUp" aria-label="Newer year">+</button>
+            </div>
+            <input type="hidden" id="f_year">
+          </div>
+          <div class="field">
+            <span class="field-label">Make</span>
+            <div class="cbox" id="cb_make">
+              <input type="text" id="f_make" class="cinput cbox-input" placeholder="Select a year first" autocomplete="off" disabled>
+              <span class="cbox-caret" aria-hidden="true"></span>
+              <div class="cbox-panel" role="listbox"></div>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label">Model</span>
+            <div class="cbox" id="cb_model">
+              <input type="text" id="f_model" class="cinput cbox-input" placeholder="Select a make first" autocomplete="off" disabled>
+              <span class="cbox-caret" aria-hidden="true"></span>
+              <div class="cbox-panel" role="listbox"></div>
+            </div>
+            <span class="chint" id="modelHint"></span>
+          </div>
+          <div class="field">
+            <span class="field-label">Odometer <span class="cmuted">(approximate is fine)</span></span>
+            <div class="kread"><span id="kmRead">150,000</span> km</div>
+            <input type="range" id="kmRange" class="krange" min="20000" max="400000" step="10000" value="150000" aria-label="Odometer kilometres">
+            <div class="kscale"><span>20k</span><span>400k+</span></div>
+            <input type="hidden" id="f_km" value="150000">
+          </div>
+          <button type="button" class="btn-primary calc-next" data-next="2">Continue</button>
+        </div>
+
+        <!-- STEP 2 -->
+        <div class="cpane" data-pane="2">
+          <div class="field">
+            <span class="field-label">Does it start and drive?</span>
+            <div class="pill-row" data-group="running">
+              <button type="button" class="pill" data-value="yes">Yes</button>
+              <button type="button" class="pill" data-value="no">No</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label">Rust</span>
+            <div class="pill-row wrap3" data-group="condition">
+              <button type="button" class="pill" data-value="none">No rust</button>
+              <button type="button" class="pill" data-value="mild">Mild rust</button>
+              <button type="button" class="pill" data-value="heavy">Flaking / significant</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label">Do you have the keys and ownership?</span>
+            <div class="pill-row" data-group="keys">
+              <button type="button" class="pill" data-value="yes">Yes</button>
+              <button type="button" class="pill" data-value="no">No</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label">Photos <span class="cmuted">(optional — speeds up pickup)</span></span>
+            <label class="cdrop" for="f_photos">
+              <span id="photoLabel">Tap to add photos</span>
+              <input type="file" id="f_photos" accept="image/*" multiple hidden>
+            </label>
+            <div class="cthumbs" id="photoThumbs"></div>
+          </div>
+          <div class="calc-nav">
+            <button type="button" class="btn-secondary calc-back" data-back="1">Back</button>
+            <button type="button" class="btn-primary calc-next" data-next="3">Continue</button>
+          </div>
+        </div>
+
+        <!-- STEP 3 -->
+        <div class="cpane" data-pane="3">
+          <div class="field">
+            <span class="field-label">Your name</span>
+            <input type="text" id="f_name" class="cinput" maxlength="60" placeholder="First and last name" autocomplete="name">
+          </div>
+          <div class="field">
+            <span class="field-label">Where is the vehicle?</span>
+            <div class="cbox" id="cb_city">
+              <input type="text" id="f_city" class="cinput cbox-input" maxlength="60" placeholder="Start typing your town…" autocomplete="off">
+              <span class="cbox-caret" aria-hidden="true"></span>
+              <div class="cbox-panel" role="listbox"></div>
+            </div>
+          </div>
+          <div class="field">
+            <span class="field-label">Mobile number</span>
+            <input type="tel" id="f_phone" class="cinput" maxlength="30" placeholder="(647) 555-0123" autocomplete="tel" inputmode="tel">
+          </div>
+          <div class="field">
+            <span class="field-label">Email <span class="cmuted">(optional, we'll send your offer here too)</span></span>
+            <input type="email" id="f_email" class="cinput" maxlength="120" placeholder="you@email.com" autocomplete="email">
+          </div>
+          <div class="field">
+            <span class="field-label">Anything we should know? <span class="cmuted">(optional)</span></span>
+            <textarea id="f_notes" class="cinput" maxlength="600" placeholder="Missing parts, where it's parked, accident history…"></textarea>
+          </div>
+          <input class="hp" type="text" id="f_hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <div class="calc-nav">
+            <button type="button" class="btn-secondary calc-back" data-back="2">Back</button>
+            <button type="submit" class="btn-primary" id="calcSubmit">Calculate My Offer</button>
+          </div>
+        </div>
+
+        <p class="form-error" id="calcError"></p>
+      </form>
+
+      <!-- VALUING -->
+      <div class="cpane cvaluing" data-pane="valuing">
+        <div class="cspinner"></div>
+        <h3 id="valuingTitle">Valuing your vehicle…</h3>
+        <div class="cbar"><span id="cbarFill"></span></div>
+        <p class="cstage" id="valuingStage">Looking up your vehicle…</p>
+      </div>
+
+      <!-- RESULT -->
+      <div class="cpane cresult" data-pane="result">
+        <span class="offer-label">Your instant cash offer</span>
+        <span class="offer-amount" id="resultAmount">$0</span>
+        <p class="cresult-sub" id="resultVehicle"></p>
+        <ul class="cincludes">
+          <li>Free towing anywhere in Scarborough &amp; the GTA</li>
+          <li>Cash in hand at pickup</li>
+          <li>We handle the paperwork</li>
+        </ul>
+        <button type="button" class="btn-primary calc-accept" id="acceptBtn">Accept My Offer</button>
+        <p class="form-error" id="acceptError"></p>
+        <p class="form-note">No obligation. Offer holds when the car matches your description.</p>
+      </div>
+
+      <!-- DONE -->
+      <div class="cpane cdone" data-pane="done">
+        <div class="tick">✓</div>
+        <h3>Offer accepted: <span id="doneAmount"></span></h3>
+        <p>We'll call or text you shortly to book your free pickup (7am to 9pm, 7 days).</p>
+        <p class="cdone-sub">In a hurry? Call <a href="tel:6472044200" style="color:var(--green);">(647) 204-4200</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- SERVICES -->
 <section class="services-bg" id="services">
@@ -737,5 +903,6 @@
     });
   });
 </script>
+<script src="/offer.js"></script>
 </body>
 </html>
