@@ -177,7 +177,7 @@
       condition: !!picked.condition,
       keys: !!picked.keys,
       photos: photos.length > 0,
-      name: val('f_name').length >= 2,
+      name: val('f_name').length >= 1,
       city: !!val('f_city'),
       phone: phone.length >= 10 && phone.length <= 11,
       email: !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
@@ -706,7 +706,7 @@
       // Record the lead in Google Ads and retain the GA4 event for analytics.
       if (typeof gtag === 'function') {
         gtag('event', 'conversion', {
-          send_to: 'AW-960491381/r2bqCL3X9aUdEPXe_8kD',
+          send_to: 'AW-18023473103/RSPpCIiElaYdEM-_oZJD',
           value: res.body.offer,
           currency: 'CAD'
         });
