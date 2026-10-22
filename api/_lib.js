@@ -98,11 +98,9 @@ async function pipeline() {
 }
 
 async function upsertContact({ email, name, phone, city }) {
-  const [firstname, ...rest] = (name || '').split(/\s+/);
   const properties = {};
   if (email) properties.email = email;
-  if (firstname) properties.firstname = firstname;
-  if (rest.length) properties.lastname = rest.join(' ');
+  if (name) properties.firstname = name;
   if (phone) properties.phone = phone;
   if (city) properties.city = city;
   if (email) {

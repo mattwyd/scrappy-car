@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
   const year = digits(body.year, 2100);
   const make = clean(body.make, 60);
   const model = clean(body.model, 60);
-  const name = clean(body.name, 60);
+  const name = clean(body.name, 60).split(/\s+/)[0];
   const email = clean(body.email, 120);
 
   if (!year || !make || !model) return res.status(400).json({ error: 'year, make and model required' });
