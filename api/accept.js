@@ -1,4 +1,4 @@
-const { clean, readBody, acceptDeal, notifyBeeper, throttled } = require('./_lib');
+const { clean, readBody, acceptDeal, notify, throttled } = require('./_lib');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
   // Quote was shown while HubSpot was down: the owners already have the lead
   // details from the quote alert, so just tell them it was accepted.
   if (id.startsWith('local-')) {
-    await notifyBeeper([`💰 OFFER ACCEPTED (${id}), lead is in the earlier "NOT SAVED" alert. Add it to HubSpot.`]).catch(() => {});
+    await notify([`💰 OFFER ACCEPTED (${id}), lead is in the earlier "NOT SAVED" alert. Add it to HubSpot.`]).catch(() => {});
     return res.status(200).json({ ok: true });
   }
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'bad quote id' });
@@ -31,10 +31,10 @@ module.exports = async (req, res) => {
   if (!deal) return res.status(200).json({ ok: true });
 
   try {
-    const notified = await notifyBeeper([`💰 OFFER ACCEPTED, $${deal.amount}. Call to book pickup.`, '', deal.description || deal.dealname]);
-    if (!notified.sent) console.error('beeper notify failed:', notified.reason, id);
+    const notified = await notify([`💰 OFFER ACCEPTED, $${deal.amount}. Call to book pickup.`, '', deal.description || deal.dealname]);
+    if (!notified.sent) console.error('lead alert failed:', notified.reason, id);
   } catch (err) {
-    console.error('beeper notify threw:', err && err.message, id);
+    console.error('lead alert threw:', err && err.message, id);
   }
 
   return res.status(200).json({ ok: true, offer: Number(deal.amount) });

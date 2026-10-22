@@ -125,6 +125,24 @@ async function upsertContact({ email, name, phone, city }) {
   return created.id;
 }
 
+// Deal properties added after launch. HUBSPOT_TOKEN is a sensitive Vercel var
+// that can't be read back to run scripts/hubspot-setup.mjs locally, so these
+// are created on first use instead (needs the crm.schemas.deals.write scope).
+const LATE_DEAL_PROPS = [
+  { name: 'sc_referrer_host', label: 'Referring site (last touch)', type: 'string', fieldType: 'text', groupName: 'scrappy_car' },
+  { name: 'sc_first_referrer_host', label: 'Referring site (first touch)', type: 'string', fieldType: 'text', groupName: 'scrappy_car' },
+];
+
+async function ensureLateDealProps() {
+  for (const p of LATE_DEAL_PROPS) {
+    try {
+      await hubspot('/crm/v3/properties/deals', { method: 'POST', body: JSON.stringify(p) });
+    } catch (err) {
+      if (!/ 409:|already exists/i.test(String(err && err.message))) throw err;
+    }
+  }
+}
+
 async function createDeal(properties, contactId) {
   const p = await pipeline();
   const deal = await hubspot('/crm/v3/objects/deals', {
@@ -178,7 +196,51 @@ async function notifyBeeper(lines) {
   return { sent: true };
 }
 
+// ── Lead alerts ───────────────────────────────────────────────────────────
+// Email to everyone in ALERT_EMAILS (comma separated), sent from the Gmail
+// account GMAIL_USER using GMAIL_APP_PASSWORD. Addresses live in env vars, not
+// here, because this repo is public. Until email is set up, or if a send
+// fails, alerts go to Beeper instead.
+let mailer = null;
+
+function emailConfigured() {
+  return !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD && process.env.ALERT_EMAILS);
+}
+
+async function notifyEmail(lines, { replyTo } = {}) {
+  const to = process.env.ALERT_EMAILS.split(',').map((a) => a.trim()).filter(Boolean);
+  if (!mailer) {
+    mailer = require('nodemailer').createTransport({
+      service: 'gmail',
+      // Google shows app passwords in groups of four; the spaces aren't part of it.
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD.replace(/\s+/g, '') },
+      connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 10000,
+    });
+  }
+  const text = lines.filter((l) => l !== null);
+  await mailer.sendMail({
+    from: `Scrappy Car leads <${process.env.GMAIL_USER}>`,
+    to,
+    replyTo: replyTo || undefined,
+    subject: text[0],
+    text: text.join('\n'),
+  });
+  return { sent: true };
+}
+
+async function notify(lines, options) {
+  if (emailConfigured()) {
+    try {
+      return await notifyEmail(lines, options);
+    } catch (err) {
+      console.error('email alert failed, falling back to beeper:', err && err.message);
+    }
+  }
+  return notifyBeeper(lines);
+}
+
 module.exports = {
   bodyTypeFor, priceFor, clean, digits, toE164, readBody, throttled,
-  upsertContact, createDeal, acceptDeal, notifyBeeper,
+  upsertContact, createDeal, acceptDeal, notify, notifyBeeper,
+  LATE_DEAL_PROPS, ensureLateDealProps,
 };

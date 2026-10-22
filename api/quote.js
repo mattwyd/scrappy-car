@@ -1,13 +1,9 @@
 const {
-  bodyTypeFor, priceFor, clean, digits, toE164, readBody, throttled, upsertContact, createDeal, notifyBeeper,
+  bodyTypeFor, priceFor, clean, digits, toE164, readBody, throttled, upsertContact, createDeal, notify,
+  LATE_DEAL_PROPS, ensureLateDealProps,
 } = require('./_lib');
 
 const ATTR_FIELDS = ['gclid', 'gbraid', 'wbraid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
-
-// Added after launch. If scripts/hubspot-setup.mjs --apply hasn't been run yet,
-// HubSpot rejects the deal over these, so the deal is retried without them
-// rather than losing the lead.
-const NEWER_DEAL_PROPS = ['sc_referrer_host', 'sc_first_referrer_host'];
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
@@ -96,24 +92,31 @@ module.exports = async (req, res) => {
       id = await createDeal(dealProps, contactId);
     } catch (err) {
       if (!/PROPERTY_DOESNT_EXIST|does not exist/i.test(String(err && err.message))) throw err;
-      console.error('hubspot is missing newer deal properties; run scripts/hubspot-setup.mjs --apply');
-      NEWER_DEAL_PROPS.forEach((k) => { delete dealProps[k]; });
-      id = await createDeal(dealProps, contactId);
+      // HubSpot doesn't have the newer properties yet: add them and retry. If
+      // that's not allowed, save the deal without them rather than lose the lead.
+      try {
+        await ensureLateDealProps();
+        id = await createDeal(dealProps, contactId);
+      } catch (e) {
+        console.error('could not add newer deal properties:', e && e.message);
+        LATE_DEAL_PROPS.forEach((p) => { delete dealProps[p.name]; });
+        id = await createDeal(dealProps, contactId);
+      }
     }
   } catch (err) {
     // Never lose a lead to a CRM outage: log everything and alert the owners,
     // then still show the customer their offer.
     console.error('hubspot write failed:', err && err.message, JSON.stringify(dealProps), summary);
     id = `local-${Date.now().toString(36)}`;
-    await notifyBeeper([`⚠️ LEAD NOT SAVED TO HUBSPOT (${id}), offer $${offer}`, '', summary]).catch(() => {});
+    await notify([`⚠️ LEAD NOT SAVED TO HUBSPOT (${id}), offer $${offer}`, '', summary], { replyTo: email }).catch(() => {});
     return res.status(200).json({ id, offer });
   }
 
   try {
-    const notified = await notifyBeeper([`🚗 NEW INSTANT OFFER, $${offer}`, '', summary]);
-    if (!notified.sent) console.error('beeper notify failed:', notified.reason);
+    const notified = await notify([`🚗 NEW INSTANT OFFER, $${offer}`, '', summary], { replyTo: email });
+    if (!notified.sent) console.error('lead alert failed:', notified.reason);
   } catch (err) {
-    console.error('beeper notify threw:', err && err.message);
+    console.error('lead alert threw:', err && err.message);
   }
 
   return res.status(200).json({ id, offer });
