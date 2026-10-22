@@ -2,12 +2,15 @@
 // body style, which is what actually sets the price band.
 const CACHE = new Map();
 
+// Brands that actually show up for scrap in the GTA, most common first so most
+// people tap theirs without typing (the dropdown keeps this order until you
+// type). Order is a rough guess at the local scrap mix. Luxury and exotic
+// brands are left out; anything missing can still be typed in.
 const MAKES = [
-  'Acura','Alfa Romeo','Audi','Bentley','BMW','Buick','Cadillac','Chevrolet','Chrysler','Dodge',
-  'Fiat','Ford','Genesis','GMC','Honda','Hummer','Hyundai','Infiniti','Isuzu','Jaguar','Jeep',
-  'Kia','Land Rover','Lexus','Lincoln','Mazda','Mercedes-Benz','Mercury','Mini','Mitsubishi',
-  'Nissan','Oldsmobile','Plymouth','Pontiac','Porsche','Ram','Saab','Saturn','Scion','Subaru',
-  'Suzuki','Tesla','Toyota','Volkswagen','Volvo',
+  'Honda','Toyota','Ford','Chevrolet','Nissan','Hyundai','Dodge','Mazda','Kia','Volkswagen',
+  'Jeep','GMC','Chrysler','Pontiac','Subaru','Mitsubishi','Ram','Buick','Saturn','Acura',
+  'BMW','Mercedes-Benz','Audi','Lexus','Infiniti','Cadillac','Lincoln','Volvo','Mercury',
+  'Mini','Suzuki','Scion','Fiat','Oldsmobile',
 ];
 
 async function vpic(make, year, type) {

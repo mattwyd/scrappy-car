@@ -4,6 +4,11 @@ const {
 
 const ATTR_FIELDS = ['gclid', 'gbraid', 'wbraid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
 
+// Added after launch. If scripts/hubspot-setup.mjs --apply hasn't been run yet,
+// HubSpot rejects the deal over these, so the deal is retried without them
+// rather than losing the lead.
+const NEWER_DEAL_PROPS = ['sc_referrer_host', 'sc_first_referrer_host'];
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -46,13 +51,16 @@ module.exports = async (req, res) => {
   const first = attr.first && typeof attr.first === 'object' ? attr.first : {};
 
   const vehicle = `${year} ${make} ${model}`;
+  // Which site sent them (chatgpt.com, perplexity.ai, google.com…). ChatGPT often
+  // strips the referrer but tags links with utm_source, so fall back to that.
+  const referrer = clean(last.referrer_host, 100) || clean(last.utm_source, 100);
   const summary = [
     `${name} · ${phone}${email ? ' · ' + email : ''}`,
     `${vehicle} · ${isRunning ? 'runs & drives' : 'does NOT run'}${km ? ' · ' + km.toLocaleString('en-CA') + ' km' : ''}${rust ? ' · rust: ' + rust : ''}${hasKeys ? '' : ' · no keys/ownership'}`,
     city ? `Where: ${city}` : null,
     notes ? `Notes: ${notes}` : null,
     photos.length ? `Photos: ${photos.join(' ')}` : null,
-    `Source: ${clean(last.channel, 40) || 'unknown'}${last.utm_campaign ? ' / ' + clean(last.utm_campaign, 100) : ''}`,
+    `Source: ${clean(last.channel, 40) || 'unknown'}${referrer ? ` (${referrer})` : ''}${last.utm_campaign ? ' / ' + clean(last.utm_campaign, 100) : ''}`,
   ].filter(Boolean).join('\n');
 
   const dealProps = {
@@ -74,6 +82,8 @@ module.exports = async (req, res) => {
     sc_first_channel: clean(first.channel, 40) || '',
     sc_landing_page: clean(last.landing_page, 200) || clean(body.page, 200) || '',
     sc_posthog_id: clean(body.posthog_id, 100) || '',
+    sc_referrer_host: clean(last.referrer_host, 100) || '',
+    sc_first_referrer_host: clean(first.referrer_host, 100) || '',
   };
   ATTR_FIELDS.forEach((k) => { dealProps[`sc_${k}`] = clean(last[k], 200) || ''; });
   // HubSpot rejects '' on number fields; drop anything empty.
@@ -82,7 +92,14 @@ module.exports = async (req, res) => {
   let id;
   try {
     const contactId = await upsertContact({ email, name, phone, city });
-    id = await createDeal(dealProps, contactId);
+    try {
+      id = await createDeal(dealProps, contactId);
+    } catch (err) {
+      if (!/PROPERTY_DOESNT_EXIST|does not exist/i.test(String(err && err.message))) throw err;
+      console.error('hubspot is missing newer deal properties; run scripts/hubspot-setup.mjs --apply');
+      NEWER_DEAL_PROPS.forEach((k) => { delete dealProps[k]; });
+      id = await createDeal(dealProps, contactId);
+    }
   } catch (err) {
     // Never lose a lead to a CRM outage: log everything and alert the owners,
     // then still show the customer their offer.

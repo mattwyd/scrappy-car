@@ -56,6 +56,8 @@ const PROPERTIES = [
   text('sc_first_channel', 'Channel (first touch)'),
   text('sc_landing_page', 'Landing page'),
   text('sc_posthog_id', 'PostHog distinct id'),
+  text('sc_referrer_host', 'Referring site (last touch)'),
+  text('sc_first_referrer_host', 'Referring site (first touch)'),
   text('sc_gclid', 'Google click id (gclid)'),
   text('sc_gbraid', 'Google gbraid'),
   text('sc_wbraid', 'Google wbraid'),

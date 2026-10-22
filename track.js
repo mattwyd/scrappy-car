@@ -87,6 +87,8 @@
     page_area: area,
     channel: attr.last.channel,
     first_channel: attr.first.channel,
+    referrer_host: attr.last.referrer_host || null,
+    first_referrer_host: attr.first.referrer_host || null,
     utm_source: attr.last.utm_source || null,
     utm_campaign: attr.last.utm_campaign || null,
     gclid_present: !!(attr.last.gclid || attr.last.gbraid || attr.last.wbraid),

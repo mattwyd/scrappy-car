@@ -443,11 +443,16 @@
         <span class="cstep" data-step="2"><i>2</i> Condition</span>
         <span class="cstep" data-step="3"><i>3</i> Contact</span>
       </div>
+      <div class="cprog" id="calcProg">
+        <div class="cprog-bar"><span id="cprogFill"></span></div>
+        <span class="cprog-label" id="cprogLabel">20% to your offer</span>
+      </div>
+      <p class="ccheer" id="calcCheer">Takes about a minute. Free towing is always included.</p>
 
       <form id="calcForm" novalidate>
         <!-- STEP 1 -->
         <div class="cpane on" data-pane="1">
-          <div class="field">
+          <div class="field" data-field="year">
             <span class="field-label">Model year</span>
             <div class="ystep">
               <button type="button" class="ystep-btn" id="yearDown" aria-label="Older year">&minus;</button>
@@ -459,7 +464,7 @@
             </div>
             <input type="hidden" id="f_year">
           </div>
-          <div class="field">
+          <div class="field" data-field="make">
             <span class="field-label">Make</span>
             <div class="cbox" id="cb_make">
               <input type="text" id="f_make" class="cinput cbox-input" placeholder="Select a year first" autocomplete="off" disabled>
@@ -467,7 +472,7 @@
               <div class="cbox-panel" role="listbox"></div>
             </div>
           </div>
-          <div class="field">
+          <div class="field" data-field="model">
             <span class="field-label">Model</span>
             <div class="cbox" id="cb_model">
               <input type="text" id="f_model" class="cinput cbox-input" placeholder="Select a make first" autocomplete="off" disabled>
@@ -476,7 +481,7 @@
             </div>
             <span class="chint" id="modelHint"></span>
           </div>
-          <div class="field">
+          <div class="field" data-field="km">
             <span class="field-label">Odometer <span class="cmuted">(approximate is fine)</span></span>
             <div class="kread"><span id="kmRead">150,000</span> km</div>
             <input type="range" id="kmRange" class="krange" min="20000" max="400000" step="10000" value="150000" aria-label="Odometer kilometres">
@@ -488,14 +493,14 @@
 
         <!-- STEP 2 -->
         <div class="cpane" data-pane="2">
-          <div class="field">
+          <div class="field" data-field="running">
             <span class="field-label">Does it start and drive?</span>
             <div class="pill-row" data-group="running">
               <button type="button" class="pill" data-value="yes">Yes</button>
               <button type="button" class="pill" data-value="no">No</button>
             </div>
           </div>
-          <div class="field">
+          <div class="field" data-field="condition">
             <span class="field-label">Rust</span>
             <div class="pill-row wrap3" data-group="condition">
               <button type="button" class="pill" data-value="none">No rust</button>
@@ -503,14 +508,14 @@
               <button type="button" class="pill" data-value="heavy">Flaking / significant</button>
             </div>
           </div>
-          <div class="field">
+          <div class="field" data-field="keys">
             <span class="field-label">Do you have the keys and ownership?</span>
             <div class="pill-row" data-group="keys">
               <button type="button" class="pill" data-value="yes">Yes</button>
               <button type="button" class="pill" data-value="no">No</button>
             </div>
           </div>
-          <div class="field">
+          <div class="field" data-field="photos">
             <span class="field-label">Photos <span class="cmuted">(optional — speeds up pickup)</span></span>
             <label class="cdrop" for="f_photos">
               <span id="photoLabel">Tap to add photos</span>
@@ -526,27 +531,34 @@
 
         <!-- STEP 3 -->
         <div class="cpane" data-pane="3">
-          <div class="field">
+          <div class="field" data-field="name">
             <span class="field-label">Your name</span>
             <input type="text" id="f_name" class="cinput" maxlength="60" placeholder="First and last name" autocomplete="name">
           </div>
-          <div class="field">
+          <div class="field" data-field="city">
             <span class="field-label">Where is the vehicle?</span>
-            <div class="cbox" id="cb_city">
-              <input type="text" id="f_city" class="cinput cbox-input" maxlength="60" placeholder="Start typing your town…" autocomplete="off">
-              <span class="cbox-caret" aria-hidden="true"></span>
-              <div class="cbox-panel" role="listbox"></div>
+            <div class="cloc">
+              <div class="cbox" id="cb_city">
+                <input type="text" id="f_city" class="cinput cbox-input" maxlength="60" placeholder="Type your area, e.g. Port Union" autocomplete="off">
+                <span class="cbox-caret" aria-hidden="true"></span>
+                <div class="cbox-panel" role="listbox"></div>
+              </div>
+              <button type="button" class="cloc-btn" id="locBtn" aria-label="Use my location to fill in the area">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
+                <span id="locBtnText">Use my location</span>
+              </button>
             </div>
+            <span class="chint" id="locHint"></span>
           </div>
-          <div class="field">
+          <div class="field" data-field="phone">
             <span class="field-label">Mobile number</span>
             <input type="tel" id="f_phone" class="cinput" maxlength="30" placeholder="(647) 555-0123" autocomplete="tel" inputmode="tel">
           </div>
-          <div class="field">
+          <div class="field" data-field="email">
             <span class="field-label">Email <span class="cmuted">(optional, we'll send your offer here too)</span></span>
             <input type="email" id="f_email" class="cinput" maxlength="120" placeholder="you@email.com" autocomplete="email">
           </div>
-          <div class="field">
+          <div class="field" data-field="notes">
             <span class="field-label">Anything we should know? <span class="cmuted">(optional)</span></span>
             <textarea id="f_notes" class="cinput" maxlength="600" placeholder="Missing parts, where it's parked, accident history…"></textarea>
           </div>
@@ -581,6 +593,19 @@
         <button type="button" class="btn-primary calc-accept" id="acceptBtn">Accept My Offer</button>
         <p class="form-error" id="acceptError"></p>
         <p class="form-note">No obligation. Offer holds when the car matches your description.</p>
+        <div class="cdecline" id="declineBox">
+          <button type="button" class="cdecline-toggle" id="declineToggle">Not ready yet?</button>
+          <div class="cdecline-panel" id="declinePanel" hidden>
+            <span class="cdecline-q">What's holding you back?</span>
+            <div class="cdecline-row">
+              <button type="button" class="pill" data-reason="offer_too_low">Offer's too low</button>
+              <button type="button" class="pill" data-reason="just_checking">Just checking prices</button>
+              <button type="button" class="pill" data-reason="want_to_talk">I'd rather talk to someone</button>
+              <button type="button" class="pill" data-reason="not_ready_to_sell">Not ready to sell yet</button>
+            </div>
+          </div>
+          <p class="cdecline-thanks" id="declineThanks" hidden>Thanks, that helps. Questions? Call <a href="tel:6472044200">(647) 204-4200</a>, 7am to 9pm.</p>
+        </div>
       </div>
 
       <!-- DONE -->
@@ -891,6 +916,15 @@
       gtag('event', 'conversion', { send_to: 'AW-18023473103/VeZmCJT3wZ4cEM-_oZJD' });
     });
   });
+
+  // Arriving from another page with #offer (area pages, ads): the browser's own
+  // jump gets lost while the page is still laying out, so redo it after load.
+  if (location.hash.length > 1) {
+    window.addEventListener('load', function() {
+      var target = document.getElementById(location.hash.slice(1));
+      if (target) target.scrollIntoView({ block: 'start' });
+    });
+  }
 
   // Smooth anchor nav
   document.querySelectorAll('a[href^="#"]').forEach(function(a) {

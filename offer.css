@@ -214,7 +214,73 @@ textarea.cinput { resize: vertical; min-height: 84px; }
   letter-spacing: -2px; margin: .75rem 0 .25rem; font-variant-numeric: tabular-nums;
 }
 .cdone-sub { font-size: .875rem; margin-top: .75rem; }
+/* progress meter + encouragement line */
+.calc { position: relative; }
+.cprog { display: flex; align-items: center; gap: .75rem; margin: -.75rem 0 .9rem; }
+.cprog-bar { flex: 1; height: 8px; background: var(--bg2); border: 1px solid var(--border); border-radius: 50px; overflow: hidden; }
+.cprog-bar span {
+  display: block; height: 100%; width: 20%;
+  background: linear-gradient(90deg, var(--green-dk), var(--green-lt));
+  box-shadow: 0 0 12px rgba(57,211,83,.55);
+  transition: width .45s cubic-bezier(.2,1.2,.4,1);
+}
+.cprog-label { font-size: .78rem; font-weight: 800; color: var(--green-lt); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ccheer { font-size: .9rem; color: var(--muted); margin-bottom: 1.25rem; min-height: 1.3em; animation: cfade .3s ease; }
+
+/* a check mark pops in next to each finished question */
+.field-label { position: relative; }
+.field.done > .field-label::after {
+  content: '✓'; display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; margin-left: .45rem; border-radius: 50%; vertical-align: 1px;
+  font-size: .68rem; font-weight: 900; color: #000;
+  background: linear-gradient(135deg, var(--green-dk), var(--green-lt));
+}
+.field.pop > .field-label::after { animation: ctick .4s cubic-bezier(.2,1.6,.4,1); }
+@keyframes ctick { 0% { transform: scale(0) rotate(-30deg); } 100% { transform: none; } }
+.pill.pop, .cstep.pop i { animation: cbounce .35s cubic-bezier(.2,1.6,.4,1); }
+@keyframes cbounce { 0% { transform: scale(.88); } 60% { transform: scale(1.06); } 100% { transform: none; } }
+.field.shake { animation: cshake .38s ease; }
+@keyframes cshake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+/* the Continue / Calculate button glows once its step is complete */
+.calc .btn-primary.ready { animation: cready 1.8s ease-in-out infinite; }
+@keyframes cready { 0%, 100% { box-shadow: 0 0 0 0 rgba(57,211,83,.45); } 50% { box-shadow: 0 0 0 8px rgba(57,211,83,0); } }
+
+/* location: type an area or use the phone's location */
+.cloc { display: flex; gap: .5rem; align-items: stretch; }
+.cloc .cbox { flex: 1; min-width: 0; }
+.cloc-btn {
+  display: inline-flex; align-items: center; gap: .4rem; flex-shrink: 0;
+  font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer;
+  color: var(--green-lt); background: rgba(57,211,83,.08);
+  border: 1px solid rgba(57,211,83,.4); border-radius: 10px; padding: 0 .9rem;
+  transition: background .15s, border-color .15s;
+}
+.cloc-btn:hover { background: rgba(57,211,83,.16); border-color: var(--green); }
+.cloc-btn:disabled { opacity: .6; cursor: progress; }
+
+/* confetti layer */
+.cconfetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+
+/* "Not ready yet?" on the offer screen */
+.cdecline { margin-top: 1.1rem; text-align: center; }
+.cdecline-toggle { background: none; border: none; font: inherit; font-size: .85rem; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.cdecline-toggle:hover { color: var(--text); }
+.cdecline-q { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .6rem; }
+.cdecline-row { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+.cdecline-row .pill { flex: 0 1 auto; font-size: .82rem; padding: .55rem .9rem; }
+.cdecline-thanks { font-size: .875rem; color: var(--muted); }
+.cdecline-thanks a { color: var(--green); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cprog-bar span, .calc .btn-primary.ready, .field.pop > .field-label::after, .pill.pop, .field.shake { animation: none; transition: none; }
+}
+
 @media (max-width: 560px) {
   .calc { padding: 1.4rem; }
   .cstep span { display: none; }
+}
+@media (max-width: 400px) {
+  .cloc { flex-direction: column; }
+  .cloc-btn { justify-content: center; padding: .7rem .9rem; }
 }

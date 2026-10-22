@@ -153,20 +153,28 @@ async function acceptDeal(id) {
 }
 
 // ── Beeper (Matrix) alerts, same room setup as carca.sh ───────────────────
+// BEEPER_MATRIX_ROOM may list several rooms separated by commas, e.g. one chat
+// per owner. Each room gets the alert; it counts as sent if any room got it.
 async function notifyBeeper(lines) {
   const token = process.env.BEEPER_MATRIX_TOKEN;
-  const room = process.env.BEEPER_MATRIX_ROOM;
-  if (!token || !room) return { sent: false, reason: 'not configured' };
+  const rooms = (process.env.BEEPER_MATRIX_ROOM || '').split(',').map((r) => r.trim()).filter(Boolean);
+  if (!token || !rooms.length) return { sent: false, reason: 'not configured' };
 
-  const res = await fetch(
-    `https://matrix.beeper.com/_matrix/client/v3/rooms/${encodeURIComponent(room)}/send/m.room.message/${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
-    {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msgtype: 'm.text', body: lines.filter((l) => l !== null).join('\n') }),
+  const body = JSON.stringify({ msgtype: 'm.text', body: lines.filter((l) => l !== null).join('\n') });
+  const results = await Promise.all(rooms.map(async (room) => {
+    try {
+      const res = await fetch(
+        `https://matrix.beeper.com/_matrix/client/v3/rooms/${encodeURIComponent(room)}/send/m.room.message/${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
+        { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body }
+      );
+      return res.ok ? null : `${room}: ${res.status} ${await res.text()}`;
+    } catch (err) {
+      return `${room}: ${err && err.message}`;
     }
-  );
-  if (!res.ok) return { sent: false, reason: `${res.status} ${await res.text()}` };
+  }));
+  const failures = results.filter(Boolean);
+  if (failures.length === rooms.length) return { sent: false, reason: failures.join('; ') };
+  if (failures.length) console.error('beeper notify partly failed:', failures.join('; '));
   return { sent: true };
 }
 
