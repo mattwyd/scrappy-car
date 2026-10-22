@@ -703,8 +703,13 @@
       quote = res.body;
       document.getElementById('resultVehicle').textContent =
         payload.year + ' ' + payload.make + ' ' + payload.model + (payload.km ? ' · ' + Number(payload.km).toLocaleString('en-CA') + ' km' : '');
-      // GA4 event: mark as a key event in GA4, import into Google Ads as secondary.
+      // Record the lead in Google Ads and retain the GA4 event for analytics.
       if (typeof gtag === 'function') {
+        gtag('event', 'conversion', {
+          send_to: 'AW-960491381/r2bqCL3X9aUdEPXe_8kD',
+          value: res.body.offer,
+          currency: 'CAD'
+        });
         gtag('event', 'quote_generated', { value: res.body.offer, currency: 'CAD' });
       }
       if (window.posthog) {
