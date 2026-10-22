@@ -219,7 +219,7 @@ textarea.cinput { resize: vertical; min-height: 84px; }
 .cprog { display: flex; align-items: center; gap: .75rem; margin: -.75rem 0 .9rem; }
 .cprog-bar { flex: 1; height: 8px; background: var(--bg2); border: 1px solid var(--border); border-radius: 50px; overflow: hidden; }
 .cprog-bar span {
-  display: block; height: 100%; width: 20%;
+  display: block; height: 100%; width: 0%;
   background: linear-gradient(90deg, var(--green-dk), var(--green-lt));
   box-shadow: 0 0 12px rgba(57,211,83,.55);
   transition: width .45s cubic-bezier(.2,1.2,.4,1);

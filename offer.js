@@ -156,9 +156,10 @@
   }
 
   // ---- Progress meter and per-field check marks ----
-  // Year and odometer start filled, so the meter opens at 20%: people finish
-  // what they've already started.
-  var REQUIRED = ['year', 'make', 'model', 'km', 'running', 'condition', 'keys', 'name', 'city', 'phone'];
+  // Year and odometer start filled in with defaults, so they don't count toward
+  // progress (the meter starts at 0%) and only get a check mark once changed.
+  var PREFILLED = { year: true, km: true };
+  var REQUIRED = ['make', 'model', 'running', 'condition', 'keys', 'name', 'city', 'phone'];
   var STEP_FIELDS = { '1': ['year', 'make', 'model'], '2': ['running', 'condition', 'keys'], '3': ['name', 'city', 'phone'] };
   var progFill = document.getElementById('cprogFill');
   var progLabel = document.getElementById('cprogLabel');
@@ -199,7 +200,7 @@
     var st = fieldStatus();
     Object.keys(st).forEach(function(f) {
       var el = calc.querySelector('.field[data-field="' + f + '"]');
-      if (el) el.classList.toggle('done', st[f]);
+      if (el) el.classList.toggle('done', st[f] && (!PREFILLED[f] || !!touchedFields[f]));
       if (st[f] && !doneFields[f]) {
         doneFields[f] = true;
         // Defaults that were filled before anyone touched the form don't count.
@@ -212,7 +213,7 @@
     });
     var pct = percentDone(st);
     if (progFill) progFill.style.width = pct + '%';
-    if (progLabel) progLabel.textContent = pct >= 100 ? 'Ready to calculate' : pct + '% to your offer';
+    if (progLabel) progLabel.textContent = pct >= 100 ? 'Ready to calculate' : pct === 0 ? "Let's get started" : pct + '% to your offer';
     Object.keys(STEP_FIELDS).forEach(function(step) {
       var btn = calc.querySelector('.cpane[data-pane="' + step + '"] .btn-primary');
       if (btn) btn.classList.toggle('ready', STEP_FIELDS[step].every(function(f) { return st[f]; }));
