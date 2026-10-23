@@ -5,6 +5,35 @@ const {
 
 const ATTR_FIELDS = ['gclid', 'gbraid', 'wbraid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
 
+// HubSpot is optional. The email alert is the lead record that matters, so a
+// missing token, an error or a slow API never holds up the offer or the alert.
+const HUBSPOT_BUDGET_MS = 6000;
+
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function saveToHubspot(dealProps, { email, name, phone, city }) {
+  const contactId = await upsertContact({ email, name, phone, city });
+  try {
+    return await createDeal(dealProps, contactId);
+  } catch (err) {
+    if (!/PROPERTY_DOESNT_EXIST|does not exist/i.test(String(err && err.message))) throw err;
+    // HubSpot doesn't have the newer properties yet: add them and retry. If
+    // that's not allowed, save the deal without them.
+    try {
+      await ensureLateDealProps();
+      return await createDeal(dealProps, contactId);
+    } catch (e) {
+      console.error('could not add newer deal properties:', e && e.message);
+      LATE_DEAL_PROPS.forEach((p) => { delete dealProps[p.name]; });
+      return createDeal(dealProps, contactId);
+    }
+  }
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -86,35 +115,22 @@ module.exports = async (req, res) => {
   // HubSpot rejects '' on number fields; drop anything empty.
   Object.keys(dealProps).forEach((k) => { if (dealProps[k] === '') delete dealProps[k]; });
 
-  let id;
-  try {
-    const contactId = await upsertContact({ email, name, phone, city });
+  // A HubSpot deal id when the deal saved, otherwise a local ref. Either way it
+  // goes in the alert so the accept alert can be matched to it.
+  let id = null;
+  let crmNote = null;
+  if (process.env.HUBSPOT_TOKEN) {
     try {
-      id = await createDeal(dealProps, contactId);
+      id = await withTimeout(saveToHubspot(dealProps, { email, name, phone, city }), HUBSPOT_BUDGET_MS);
     } catch (err) {
-      if (!/PROPERTY_DOESNT_EXIST|does not exist/i.test(String(err && err.message))) throw err;
-      // HubSpot doesn't have the newer properties yet: add them and retry. If
-      // that's not allowed, save the deal without them rather than lose the lead.
-      try {
-        await ensureLateDealProps();
-        id = await createDeal(dealProps, contactId);
-      } catch (e) {
-        console.error('could not add newer deal properties:', e && e.message);
-        LATE_DEAL_PROPS.forEach((p) => { delete dealProps[p.name]; });
-        id = await createDeal(dealProps, contactId);
-      }
+      console.error('hubspot write failed:', err && err.message, JSON.stringify(dealProps), summary);
+      crmNote = `Not saved to HubSpot (${err && err.message ? err.message.slice(0, 120) : 'error'}).`;
     }
-  } catch (err) {
-    // Never lose a lead to a CRM outage: log everything and alert the owners,
-    // then still show the customer their offer.
-    console.error('hubspot write failed:', err && err.message, JSON.stringify(dealProps), summary);
-    id = `local-${Date.now().toString(36)}`;
-    await notify([`⚠️ LEAD NOT SAVED TO HUBSPOT (${id}), offer $${offer}`, '', summary], { replyTo: email }).catch(() => {});
-    return res.status(200).json({ id, offer });
   }
+  if (!id) id = `local-${Date.now().toString(36)}`;
 
   try {
-    const notified = await notify([`🚗 NEW INSTANT OFFER, $${offer}`, '', summary], { replyTo: email });
+    const notified = await notify([`🚗 NEW INSTANT OFFER, $${offer}`, '', summary, `Ref: ${id}`, crmNote], { replyTo: email });
     if (!notified.sent) console.error('lead alert failed:', notified.reason);
   } catch (err) {
     console.error('lead alert threw:', err && err.message);
