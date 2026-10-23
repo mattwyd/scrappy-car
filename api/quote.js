@@ -34,7 +34,8 @@ module.exports = async (req, res) => {
   const offer = priceFor(bodyType, isRunning);
   const city = clean(body.city, 60);
   const km = digits(body.km, 9999999);
-  const rust = clean(body.condition, 30);
+  // vehicle_rust is a HubSpot dropdown; any other value would make it reject the whole deal.
+  const rust = ['none', 'mild', 'heavy'].includes(body.condition) ? body.condition : null;
   const hasKeys = body.has_keys === true;
   const notes = clean(body.notes, 600);
   const photos = Array.isArray(body.photos)
