@@ -128,9 +128,13 @@ module.exports = async (req, res) => {
     }
   }
   if (!id) id = `local-${Date.now().toString(36)}`;
+  // One tap from the email to the deal, to mark it booked, picked up or lost.
+  const dealLink = process.env.HUBSPOT_PORTAL_ID && /^\d+$/.test(id)
+    ? `Update deal: https://app.hubspot.com/contacts/${process.env.HUBSPOT_PORTAL_ID}/record/0-3/${id}`
+    : null;
 
   try {
-    const notified = await notify([`🚗 NEW INSTANT OFFER, $${offer}`, '', summary, `Ref: ${id}`, crmNote], { replyTo: email });
+    const notified = await notify([`🚗 NEW INSTANT OFFER, $${offer}`, '', summary, `Ref: ${id}`, dealLink, crmNote], { replyTo: email });
     if (!notified.sent) console.error('lead alert failed:', notified.reason);
   } catch (err) {
     console.error('lead alert threw:', err && err.message);

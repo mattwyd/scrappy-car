@@ -52,6 +52,9 @@ module.exports = async (req, res) => {
   // Already accepted: stay quiet rather than notifying twice.
   if (!deal) return res.status(200).json({ ok: true });
 
-  await alert([`💰 OFFER ACCEPTED, $${deal.amount}. Call to book pickup.`, '', deal.description || deal.dealname, `Ref: ${id}`], id);
+  const dealLink = process.env.HUBSPOT_PORTAL_ID
+    ? `Update deal: https://app.hubspot.com/contacts/${process.env.HUBSPOT_PORTAL_ID}/record/0-3/${id}`
+    : null;
+  await alert([`💰 OFFER ACCEPTED, $${deal.amount}. Call to book pickup.`, '', deal.description || deal.dealname, `Ref: ${id}`, dealLink], id);
   return res.status(200).json({ ok: true, offer: Number(deal.amount) });
 };
