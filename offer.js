@@ -710,7 +710,7 @@
           value: res.body.offer,
           currency: 'CAD'
         });
-        gtag('event', 'quote_generated', { value: res.body.offer, currency: 'CAD' });
+        gtag('event', 'quote_generated', { value: res.body.offer, currency: 'CAD', send_to: 'G-Y42H4S5V5G' });
       }
       if (window.posthog) {
         posthog.capture('quote_generated', {
@@ -825,7 +825,7 @@
     }).then(function() {
       // GA4 event: mark as a key event in GA4, import into Google Ads as a conversion.
       if (typeof gtag === 'function') {
-        gtag('event', 'offer_accepted', { value: quote.offer, currency: 'CAD' });
+        gtag('event', 'offer_accepted', { value: quote.offer, currency: 'CAD', send_to: 'G-Y42H4S5V5G' });
       }
       // Accepting always counts, even after "Not ready yet?" or the 10-minute timeout.
       offerResolved = false;
