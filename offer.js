@@ -705,6 +705,12 @@
         payload.year + ' ' + payload.make + ' ' + payload.model + (payload.km ? ' · ' + Number(payload.km).toLocaleString('en-CA') + ' km' : '');
       // Record the lead in Google Ads and retain the GA4 event for analytics.
       if (typeof gtag === 'function') {
+        // Enhanced conversions for leads: the tag hashes these before sending, so a
+        // later "Picked up" deal can be matched to the ad click without the gclid.
+        gtag('set', 'user_data', {
+          phone_number: phoneDigits.length === 10 ? '+1' + phoneDigits : '+' + phoneDigits,
+          email: payload.email || undefined
+        });
         gtag('event', 'conversion', {
           send_to: 'AW-18023473103/RSPpCIiElaYdEM-_oZJD',
           value: res.body.offer,
