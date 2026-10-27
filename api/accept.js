@@ -1,4 +1,4 @@
-const { clean, readBody, acceptDeal, notify, throttled } = require('./_lib');
+const { clean, readBody, acceptDeal, notify, offerText, throttled } = require('./_lib');
 
 // HubSpot is optional (see quote.js): the customer's accept always succeeds and
 // the owners always get the alert, whether or not the deal stage could move.
@@ -55,6 +55,6 @@ module.exports = async (req, res) => {
   const dealLink = process.env.HUBSPOT_PORTAL_ID
     ? `Update deal: https://app.hubspot.com/contacts/${process.env.HUBSPOT_PORTAL_ID}/record/0-3/${id}`
     : null;
-  await alert([`💰 OFFER ACCEPTED, $${deal.amount}. Call to book pickup.`, '', deal.description || deal.dealname, `Ref: ${id}`, dealLink], id);
+  await alert([`💰 OFFER ACCEPTED, ${offerText(deal.amount, deal.sc_offer_high)}. Call to book pickup.`, '', deal.description || deal.dealname, `Ref: ${id}`, dealLink], id);
   return res.status(200).json({ ok: true, offer: Number(deal.amount) });
 };

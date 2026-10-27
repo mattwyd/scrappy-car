@@ -192,6 +192,7 @@ textarea.cinput { resize: vertical; min-height: 84px; }
   color: var(--white); line-height: 1; letter-spacing: -3px;
   animation: cpop .45s cubic-bezier(.2,1.4,.4,1);
 }
+.offer-amount.is-range { font-size: clamp(2.4rem, 10vw, 3.6rem); letter-spacing: -2px; }
 @keyframes cpop { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
 .cresult-sub { color: var(--muted); margin-top: .6rem; font-size: .95rem; }
 .cincludes { list-style: none; margin: 1.5rem 0; text-align: left; display: inline-block; }

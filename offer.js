@@ -306,13 +306,22 @@
     })(t0);
   }
 
-  function countUp(el, to) {
-    if (reduceMotion) { el.textContent = '$' + to; return; }
+  // The offer is a range, low to high; high equals low when there's one price.
+  function offerText(low, high, f) {
+    if (f == null) f = 1;
+    var text = '$' + Math.round(low * f);
+    return high > low ? text + '–$' + Math.round(high * f) : text;
+  }
+
+  // Counts both ends of the range up together.
+  function countUp(el, to, toHigh) {
+    el.classList.toggle('is-range', toHigh > to);
+    if (reduceMotion) { el.textContent = offerText(to, toHigh); return; }
     var t0 = performance.now();
     var DUR = 950;
     (function tick(t) {
       var p = Math.min(1, (t - t0) / DUR);
-      el.textContent = '$' + Math.round(to * (1 - Math.pow(1 - p, 3)));
+      el.textContent = offerText(to, toHigh, 1 - Math.pow(1 - p, 3));
       if (p < 1) requestAnimationFrame(tick);
     })(t0);
   }
@@ -720,13 +729,16 @@
       }
       if (window.posthog) {
         posthog.capture('quote_generated', {
-          offer: res.body.offer, year: payload.year, make: payload.make,
+          offer: res.body.offer, offer_high: res.body.offer_high, year: payload.year, make: payload.make,
           model: payload.model, km: payload.km, is_running: payload.is_running,
           rust: payload.condition, city: payload.city
         });
       }
       show('result');
-      countUp(document.getElementById('resultAmount'), res.body.offer);
+      countUp(document.getElementById('resultAmount'), res.body.offer, res.body.offer_high);
+      document.getElementById('resultNote').textContent = res.body.offer_high > res.body.offer
+        ? 'No obligation. Where you land in the range depends on the rims, the catalytic converter and how the car looks in person.'
+        : 'No obligation. Offer holds when the car matches your description.';
       setTimeout(function() { confetti(1); buzz([12, 50, 18]); }, reduceMotion ? 0 : 650);
       offerShownAt = Date.now();
       offerResolved = false;
@@ -744,7 +756,7 @@
     if (!offerShownAt || offerResolved) return;
     offerResolved = true;
     clearTimeout(offerTimer);
-    var base = { offer: quote && quote.offer, seconds_on_offer: Math.round((Date.now() - offerShownAt) / 1000) };
+    var base = { offer: quote && quote.offer, offer_high: quote && quote.offer_high, seconds_on_offer: Math.round((Date.now() - offerShownAt) / 1000) };
     Object.keys(props || {}).forEach(function(k) { base[k] = props[k]; });
     track(event, base, beacon);
   }
@@ -836,7 +848,7 @@
       // Accepting always counts, even after "Not ready yet?" or the 10-minute timeout.
       offerResolved = false;
       resolveOffer('offer_accepted', { id: quote.id });
-      document.getElementById('doneAmount').textContent = '$' + quote.offer;
+      document.getElementById('doneAmount').textContent = offerText(quote.offer, quote.offer_high);
       show('done');
       setTimeout(function() { confetti(1.6); buzz([20, 60, 20, 60, 30]); }, reduceMotion ? 0 : 120);
 

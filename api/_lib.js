@@ -22,16 +22,118 @@ function bodyTypeFor(model, declaredType) {
   return TRUCK_WORDS.test(model || '') ? 'truck' : 'car';
 }
 
-// Offer ladder, recomputed server-side on every quote so the number can't be
-// talked upward from the client. Override without a code change by setting
+// The offer is a range, recomputed server-side on every quote so it can't be
+// talked upward from the client.
+//
+// Low end: a flat ladder. Override without a code change by setting
 // OFFER_PRICES to JSON like {"car":{"yes":300,"no":200},"truck":{"yes":450,"no":350}}.
 // TODO(owners): confirm these numbers with Marce and Ryan before launch.
 const DEFAULT_PRICES = { car: { yes: 300, no: 200 }, truck: { yes: 450, no: 350 } };
 
-function priceFor(bodyType, isRunning) {
+function ladderPrice(bodyType, isRunning) {
   let table = DEFAULT_PRICES;
   try { if (process.env.OFFER_PRICES) table = JSON.parse(process.env.OFFER_PRICES); } catch (e) {}
   return table[bodyType === 'truck' ? 'truck' : 'car'][isRunning ? 'yes' : 'no'];
+}
+
+// High end: fitted to 113 quotes from our yard (Sep 2024 to Oct 2026), it
+// estimates what the yard pays for a pickup, then keeps a margin. Override any
+// part without a code change by setting YARD_PRICES to JSON like
+// {"margin":150,"base":{"suv":750}}.
+const DEFAULT_YARD_PRICING = {
+  // Yard's pickup price with alloy rims and the original catalytic converter.
+  base: {
+    small: 450, midsize: 550, compactSuv: 550, suv: 750, minivan: 700,
+    smallPickup: 550, pickup: 800, van: 800,
+  },
+  newYear: 2015, newBonus: 100,
+  oldYear: 2003, oldPenalty: 100,
+  // Running barely changes a scrap price; it pays on newer vehicles the yard can part out.
+  runningYear: 2013, runningBonus: 200,
+  steelRims: 50,
+  cat: { original: 0, aftermarket: 100, none: 200 },
+  dropOff: 150, // owner brings it in, so no tow
+  freeKm: 100, perKm: 6, // road km from the yard before towing eats into the price
+  margin: 100,
+  floor: 100,
+  // The form doesn't ask about rims or the cat yet.
+  assume: { rims: 'steel', cat: 'original' },
+};
+
+// Scrap value follows weight, so the classes are rough weight bands. Checked in
+// order, first match wins; anything unmatched is an SUV if it's a truck body,
+// otherwise a small car.
+const CLASS_WORDS = [
+  ['small', /\bmazda ?5\b/i], // compact MPV, priced like a small car
+  ['minivan', /\b(caravan|town (and|&) country|odyssey|sienna|quest|sedona|carnival|pacifica|routan|uplander|montana|venture|windstar|freestar|entourage)\b/i],
+  ['pickup', /\b(f-?[1-5]50|f-series|lariat|silverado|sierra|ram|tundra|titan|avalanche)\b/i],
+  ['smallPickup', /\b(ranger|dakota|s-?10|sonoma|colorado|canyon|tacoma|frontier|ridgeline|gladiator|maverick|pickup)\b/i],
+  ['van', /\b(econoline|e-?\d{3}|e-series|express|savana|transit|sprinter|promaster|nv\d{3,4}|van)\b/i],
+  ['compactSuv', /\b(trax|juke|patriot|compass|vue|tribute|escape|forester|outback|rav4|cr-?v|crv|rogue|equinox|terrain|journey|kona|encore|tucson|sportage|cx-?[35]|xc\d{2}|venza)\b/i],
+  ['suv', /\b(mkx|mkt|enclave|qx\d{2}|fx\d{2}|murano|sorento|santa fe|highlander|pilot|pathfinder|explorer|edge|cherokee|durango|traverse|acadia|4runner|tahoe|suburban|yukon|expedition|escalade|armada|sequoia)\b/i],
+  ['midsize', /\b(accord|camry|mazda ?6|altima|maxima|fusion|taurus|sonata|optima|k5|malibu|impala|avenger|charger|200|300|sebring|grand prix|g6|lacrosse|regal|lucerne|crown victoria|grand marquis|passat|legacy|avalon|[57] series|5\d\di|g3[57]|xjs?|tlx?|s[68]0|cts|azera|cadenza|genesis)\b/i],
+];
+
+function vehicleClass(make, model, bodyType) {
+  const name = `${make || ''} ${model || ''}`;
+  const hit = CLASS_WORDS.find(([, words]) => words.test(name));
+  if (hit) return hit[0];
+  return bodyType === 'truck' ? 'suv' : 'small';
+}
+
+// Approximate road km from the yard (Mississauga) for towns past
+// the service area. Every area the form suggests is within freeKm.
+const FAR_KM = {
+  barrie: 100, 'niagara falls': 110, woodstock: 130, orillia: 135, lindsay: 140, 'port hope': 140,
+  peterborough: 145, collingwood: 150, cobourg: 150, london: 180, belleville: 210, sudbury: 390,
+};
+
+function kmFromYard(city) {
+  const town = (city || '').split(',')[0].trim().toLowerCase().replace(/\s+(on|ontario)$/, '');
+  return FAR_KM[town] || 0;
+}
+
+function yardPricing() {
+  const d = DEFAULT_YARD_PRICING;
+  try {
+    const o = process.env.YARD_PRICES ? JSON.parse(process.env.YARD_PRICES) : null;
+    if (o) {
+      return {
+        ...d, ...o,
+        base: { ...d.base, ...o.base },
+        cat: { ...d.cat, ...o.cat },
+        assume: { ...d.assume, ...o.assume },
+      };
+    }
+  } catch (e) {}
+  return d;
+}
+
+// rims: 'alloy' | 'steel'; cat: 'original' | 'aftermarket' | 'none'. Unknown values
+// fall back to yardPricing().assume. dropOff: the owner brings it to the yard.
+function yardOffer({ year, make, model, bodyType, isRunning, rims, cat, dropOff, city }) {
+  const p = yardPricing();
+  let price = p.base[vehicleClass(make, model, bodyType)];
+  if (year >= p.newYear) price += p.newBonus;
+  if (year < p.oldYear) price -= p.oldPenalty;
+  if (isRunning && year >= p.runningYear) price += p.runningBonus;
+  if ((rims || p.assume.rims) === 'steel') price -= p.steelRims;
+  price -= p.cat[cat] ?? p.cat[p.assume.cat];
+  if (dropOff) price += p.dropOff;
+  else price -= Math.max(0, kmFromYard(city) - p.freeKm) * p.perKm;
+  price -= p.margin;
+  return Math.max(p.floor, Math.floor(price / 10) * 10);
+}
+
+// { low, high }. high never drops below low, so when the yard estimate is under
+// the ladder the customer sees a single number.
+function priceFor(vehicle) {
+  const low = ladderPrice(vehicle.bodyType, vehicle.isRunning);
+  return { low, high: Math.max(low, yardOffer(vehicle)) };
+}
+
+function offerText(low, high) {
+  return Number(high) > Number(low) ? `$${low} to $${high}` : `$${low}`;
 }
 
 function clean(value, max) {
@@ -129,6 +231,8 @@ async function upsertContact({ email, name, phone, city }) {
 const LATE_DEAL_PROPS = [
   { name: 'sc_referrer_host', label: 'Referring site (last touch)', type: 'string', fieldType: 'text', groupName: 'scrappy_car' },
   { name: 'sc_first_referrer_host', label: 'Referring site (first touch)', type: 'string', fieldType: 'text', groupName: 'scrappy_car' },
+  // amount holds the low end of the offer range.
+  { name: 'sc_offer_high', label: 'Offer range high', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
 ];
 
 async function ensureLateDealProps() {
@@ -159,7 +263,7 @@ async function createDeal(properties, contactId) {
 // (a replayed accept must not fire a second notification).
 async function acceptDeal(id) {
   const p = await pipeline();
-  const deal = await hubspot(`/crm/v3/objects/deals/${encodeURIComponent(id)}?properties=dealname,amount,dealstage,description`);
+  const deal = await hubspot(`/crm/v3/objects/deals/${encodeURIComponent(id)}?properties=dealname,amount,sc_offer_high,dealstage,description`);
   if (deal.properties.dealstage !== p.offerSent) return null;
   await hubspot(`/crm/v3/objects/deals/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -249,7 +353,7 @@ async function notify(lines, options) {
 }
 
 module.exports = {
-  bodyTypeFor, priceFor, clean, digits, toE164, readBody, throttled,
+  bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled,
   upsertContact, createDeal, acceptDeal, notify, notifyBeeper,
   LATE_DEAL_PROPS, ensureLateDealProps,
 };

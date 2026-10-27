@@ -1,5 +1,5 @@
 const {
-  bodyTypeFor, priceFor, clean, digits, toE164, readBody, throttled, upsertContact, createDeal, notify,
+  bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled, upsertContact, createDeal, notify,
   LATE_DEAL_PROPS, ensureLateDealProps,
 } = require('./_lib');
 
@@ -60,8 +60,9 @@ module.exports = async (req, res) => {
 
   const isRunning = body.is_running === true;
   const bodyType = bodyTypeFor(model, clean(body.body_type, 10));
-  const offer = priceFor(bodyType, isRunning);
   const city = clean(body.city, 60);
+  // offer is the low end of the range; offerHigh equals it when there's no range.
+  const { low: offer, high: offerHigh } = priceFor({ year, make, model, bodyType, isRunning, city });
   const km = digits(body.km, 9999999);
   // vehicle_rust is a HubSpot dropdown; any other value would make it reject the whole deal.
   const rust = ['none', 'mild', 'heavy'].includes(body.condition) ? body.condition : null;
@@ -92,7 +93,8 @@ module.exports = async (req, res) => {
   const dealProps = {
     dealname: `${vehicle}${city ? ' · ' + city : ''}`,
     amount: String(offer),
-    description: summary,
+    sc_offer_high: String(offerHigh),
+    description: `Offer: ${offerText(offer, offerHigh)}\n${summary}`,
     lead_source_detail: 'instant_offer_form',
     vehicle_year: String(year),
     vehicle_make: make,
@@ -134,11 +136,11 @@ module.exports = async (req, res) => {
     : null;
 
   try {
-    const notified = await notify([`🚗 NEW INSTANT OFFER, $${offer}`, '', summary, `Ref: ${id}`, dealLink, crmNote], { replyTo: email });
+    const notified = await notify([`🚗 NEW INSTANT OFFER, ${offerText(offer, offerHigh)}`, '', summary, `Ref: ${id}`, dealLink, crmNote], { replyTo: email });
     if (!notified.sent) console.error('lead alert failed:', notified.reason);
   } catch (err) {
     console.error('lead alert threw:', err && err.message);
   }
 
-  return res.status(200).json({ id, offer });
+  return res.status(200).json({ id, offer, offer_high: offerHigh });
 };
