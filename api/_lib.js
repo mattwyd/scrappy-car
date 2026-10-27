@@ -197,8 +197,8 @@ async function notifyBeeper(lines) {
 // ── Lead alerts ───────────────────────────────────────────────────────────
 // Email to everyone in ALERT_EMAILS (comma separated), sent from the Gmail
 // account GMAIL_USER using GMAIL_APP_PASSWORD. Addresses live in env vars, not
-// here, because this repo is public. Until email is set up, or if a send
-// fails, alerts go to Beeper instead.
+// here, because this repo is public. Beeper is sent as well when it is
+// configured, so the team receives both a durable email and an immediate alert.
 let mailer = null;
 
 function emailConfigured() {
@@ -227,14 +227,25 @@ async function notifyEmail(lines, { replyTo } = {}) {
 }
 
 async function notify(lines, options) {
+  const failures = [];
+  let sent = false;
+
   if (emailConfigured()) {
     try {
-      return await notifyEmail(lines, options);
+      await notifyEmail(lines, options);
+      sent = true;
     } catch (err) {
-      console.error('email alert failed, falling back to beeper:', err && err.message);
+      const reason = err && err.message;
+      failures.push(`email: ${reason}`);
+      console.error('email alert failed:', reason);
     }
   }
-  return notifyBeeper(lines);
+
+  const beeper = await notifyBeeper(lines);
+  if (beeper.sent) sent = true;
+  else if (beeper.reason) failures.push(`beeper: ${beeper.reason}`);
+
+  return { sent, reason: failures.join('; ') || undefined };
 }
 
 module.exports = {
