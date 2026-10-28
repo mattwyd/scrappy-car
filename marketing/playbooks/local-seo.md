@@ -31,7 +31,7 @@ Name, address, phone must match exactly everywhere. Canonical form:
 
 ```
 Scrappy Car
-125 Island Rd, Scarborough, ON M1C 4Z2
+115 Island Rd, Scarborough, ON M1C 2P7
 (647) 204-4200
 https://scrappycar.ca
 ```

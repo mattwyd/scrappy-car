@@ -7,7 +7,7 @@ Rules:
 - Under 110 words. Plain text. One clear ask.
 - First line must reference something specific about the recipient (their page, their shop, their reviews). If no specific detail is available, return "SKIP".
 - Offer something useful to them (referral fee for partners; facts, photos, or a reader tip for publishers).
-- Include sender name, business address (125 Island Rd, Scarborough, ON), and "Reply 'no thanks' and we won't email again."
+- Include sender name, business address (115 Island Rd, Scarborough, ON), and "Reply 'no thanks' and we won't email again."
 - Never claim rankings, awards, or numbers not in the input.
 
 User:

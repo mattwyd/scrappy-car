@@ -1,15 +1,15 @@
 # Runbook: Build Order
 
-Checklist. Do these in order; each step says what "done" looks like. Owner in brackets.
+Checklist from the original plan. The live to-do list is TODO.md at the repo root. Do these in order; each step says what "done" looks like. Owner in brackets.
 
 ## Week 1: foundations
 
-- [ ] **Repo hygiene** [Matt]: `.vercelignore` excludes `marketing/`; `.gitignore` excludes `.env`, `marketing/infra/.env`, `marketing/infra/backups/`. Done when `vercel build` output has no `marketing/` files.
-- [ ] **Supabase** [Matt]: use the existing carca.sh project if it's in the Canada region, otherwise create a new one in Canada (Central) and move carca.sh over. Run `marketing/supabase/schema.sql`. Migrate `carcash_leads` into `leads` with `brand='carcash'`, then create a `carcash_leads` compatibility view. Done when both sites' tables exist and carca.sh still inserts successfully.
-- [ ] **Confirm prices** [Marce/Ryan]: fill real Scrappy Car numbers in `scrap_prices`.
-- [ ] **PostHog on scrappycar.ca** [Matt]: same snippet and project key as carca.sh, add `brand` super property, events from `tracking-plan.md` for phone clicks. Done when events show in PostHog Live.
-- [ ] **Attribution script** [Matt]: first/last touch capture into `sc_attr`, channel rules, including `ai_assistant` referrers.
-- [ ] **AI crawler access** [Matt]: `robots.txt` updated, `llms.txt` published, schema `sameAs` added.
+- [x] **Repo hygiene** [Matt]: `.vercelignore` excludes `marketing/`; `.gitignore` excludes `.env`, `marketing/infra/.env`, `marketing/infra/backups/`. Done when `vercel build` output has no `marketing/` files.
+- [x] ~~**Supabase**~~ Replaced: leads live in HubSpot (see TODO.md). [Matt]: use the existing carca.sh project if it's in the Canada region, otherwise create a new one in Canada (Central) and move carca.sh over. Run `marketing/supabase/schema.sql`. Migrate `carcash_leads` into `leads` with `brand='carcash'`, then create a `carcash_leads` compatibility view. Done when both sites' tables exist and carca.sh still inserts successfully.
+- [x] ~~**Confirm prices**~~ Replaced: the offer range is fitted to 113 yard quotes (api/_lib.js). [Marce/Ryan]: fill real Scrappy Car numbers in `scrap_prices`.
+- [x] **PostHog on scrappycar.ca** [Matt]: same snippet and project key as carca.sh, add `brand` super property, events from `tracking-plan.md` for phone clicks. Done when events show in PostHog Live.
+- [x] **Attribution script** [Matt]: first/last touch capture into `sc_attr`, channel rules, including `ai_assistant` referrers.
+- [x] **AI crawler access** [Matt]: `robots.txt` updated, `llms.txt` published, schema `sameAs` added.
 - [ ] **Citations** [Marce/Ryan with Matt]: claim and match NAP on Bing Places, Apple Business Connect, Yelp, Facebook. Update `citations` rows.
 - [ ] **Mac mini** [Matt]: install Docker Desktop (or OrbStack), set the mini to never sleep and auto-restart after power failure (System Settings > Energy). `cd marketing/infra && cp .env.example .env`, fill n8n + tunnel values, `docker compose up -d`. Done when `https://hooks.scrappycar.ca/webhook-test/ping` reaches n8n.
 - [ ] **Cloudflare Tunnel** [Matt]: DNS for scrappycar.ca must be on Cloudflare, or use a subdomain of a Cloudflare-managed domain. Public hostname routes only `/webhook*` to n8n; the editor stays LAN-only.
@@ -23,7 +23,7 @@ Checklist. Do these in order; each step says what "done" looks like. Owner in br
 - [ ] W06 review requests. Test on a team member's phone.
 - [ ] W02 call logging (full version after port completes).
 - [ ] Twilio port cutover (Sunday evening), then full call flow: simultaneous ring, whisper, recording notice, after-hours voicemail.
-- [ ] W05 offline conversions: create `pickup_completed` conversion action in Google Ads (import, click-based), link developer token.
+- [ ] W05 offline conversions (now planned as the HubSpot to Google Ads link, see TODO.md): create `pickup_completed` conversion action in Google Ads (import, click-based), link developer token.
 - [ ] W07 review replies.
 - [ ] Two weeks of baseline data, then lock KPI targets in `README.md`.
 

@@ -35,7 +35,7 @@ Score weights (Clay formula column):
 - Real estate agent (move-outs): 4
 - Driving school, small fleet, rideshare fleet: 5
 
-Distance multiplier: under 10 km from 125 Island Rd x1.5, 10 to 25 km x1.0, over 25 km x0.5.
+Distance multiplier: under 10 km from 115 Island Rd x1.5, 10 to 25 km x1.0, over 25 km x0.5.
 Bonus: under 200 Google reviews (owner-operated, easier to reach) +2.
 
 ### Clay table recipe
