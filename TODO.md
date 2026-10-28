@@ -23,8 +23,8 @@ Current state as of Oct 28, 2026. The older build plan is in `marketing/runbooks
 
 - [ ] **Google Business Profile** stays as it is (Matt's rule: when the site and the profile disagree, change the site; editing the profile risks re-verification and trust). Still worth doing there without editing facts: reply to the new 5-star review and ask every pickup for a review. Two values on the profile look wrong, left alone for now: the address is 125 Island Rd while the yard is at 115 (the site shows 125 to match, Matt's call on Oct 28), and the website link is https://scrappycar.net/ (a redirect; https://scrappycar.ca/?utm_source=google&utm_medium=organic&utm_campaign=gbp would also make profile visits show as "gbp" in PostHog).
 - [x] **Cloudflare Email Routing**: hello@scrappycar.ca forwards to mattproct@gmail.com (added Oct 28). Rules allow one destination each; forwarding to both of us would need an Email Worker. alerts@ is still dropped, on purpose.
-- [ ] **Google Search Console**: verify scrappycar.ca and submit the sitemap.
-- [ ] **Bing Webmaster Tools**: import from Search Console, check the pages get indexed (Bing had 0 pages on Oct 27; ChatGPT and Copilot search through Bing).
+- [x] **Google Search Console**: https://scrappycar.ca/ verified Oct 28 through the Google Analytics tag (keep that tag on the site), sitemap submitted. Check the sitemap status leaves "Couldn't fetch" within a few days.
+- [x] **Bing Webmaster Tools**: imported from Search Console Oct 28; sitemap read successfully, 6 pages found and crawled. Check Search Performance and the AI Performance report there in a couple of weeks.
 - [ ] **Bing Places**: claim the listing (feeds ChatGPT, Copilot, Alexa).
 - [ ] **Apple Business Connect**: claim the listing (Apple Maps, Siri).
 - [ ] **Yelp, Facebook page, YellowPages.ca, 411.ca**: same name, address and phone everywhere. Then add the profile URLs to the schema `sameAs` on the site.
