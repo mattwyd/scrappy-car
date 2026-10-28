@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Books | Scrappy Car</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#0f0f0f; --bg2:#1a1a1a; --bg3:#242424; --border:#2e2e2e; --green:#39d353; --red:#ff7b72; --text:#e8e8e8; --muted:#8a8a8a; --white:#fff; --radius:8px; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; line-height: 1.5; }
+    main { max-width: 960px; margin: 0 auto; padding: 1.25rem 1rem 4rem; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .logo { font-size: 1.2rem; font-weight: 800; color: var(--white); text-decoration: none; }
+    .logo span { color: var(--green); }
+    .month { display: flex; align-items: center; gap: .5rem; }
+    .month strong { min-width: 9rem; text-align: center; color: var(--white); }
+    button, input, select { font: inherit; color: var(--text); background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .75rem; }
+    button { cursor: pointer; }
+    button.primary { background: var(--green); color: #000; font-weight: 800; border: 0; }
+    button.link { background: none; border: 0; color: var(--muted); padding: .25rem .5rem; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; margin-bottom: 1.25rem; }
+    .kpi { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem 1rem; }
+    .kpi .label { color: var(--muted); font-size: .8rem; }
+    .kpi .value { font-size: 1.6rem; font-weight: 800; color: var(--white); }
+    .neg { color: var(--red) !important; }
+    section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
+    h2 { font-size: 1rem; color: var(--white); margin-bottom: .75rem; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { text-align: left; padding: .45rem .4rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: .8rem; }
+    td.num, th.num { text-align: right; white-space: nowrap; }
+    tr.total td { font-weight: 800; color: var(--white); border-bottom: 0; }
+    .scroll { overflow-x: auto; }
+    a { color: var(--green); }
+    .warn { border-color: #6b4f12; background: #241c0b; }
+    form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; align-items: end; }
+    label { display: grid; gap: .25rem; font-size: .8rem; color: var(--muted); min-width: 0; }
+    label > input, label > select { width: 100%; min-width: 0; }
+    .error { color: var(--red); font-size: .9rem; margin-top: .5rem; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <a class="logo" href="/">Scrappy<span>Car</span> books</a>
+    <div class="month">
+      <button type="button" id="prev" aria-label="Previous month">&larr;</button>
+      <strong id="monthLabel">Loading…</strong>
+      <button type="button" id="next" aria-label="Next month">&rarr;</button>
+    </div>
+  </header>
+
+  <p class="error" id="pageError"></p>
+  <div class="kpis" id="kpis"></div>
+  <section class="warn" id="missingBox" hidden>
+    <h2>Pickups missing prices</h2>
+    <p class="muted">Open each deal and fill in "Sold to yard for" and "Paid to customer", or these cars count as $0.</p>
+    <ul id="missingList" style="margin:.5rem 0 0 1.1rem"></ul>
+  </section>
+  <section>
+    <h2>Profit and loss</h2>
+    <table id="plTable"></table>
+  </section>
+  <section>
+    <h2>Pickups</h2>
+    <div class="scroll"><table id="pickupTable"></table></div>
+  </section>
+  <section>
+    <h2>By channel</h2>
+    <p class="muted" style="margin-bottom:.5rem">Where each lead came from. Google Ads spend is set against the Google Ads channel.</p>
+    <div class="scroll"><table id="channelTable"></table></div>
+  </section>
+  <section>
+    <h2>Add an expense</h2>
+    <form id="expenseForm">
+      <label>Date<input type="date" name="date" required></label>
+      <label>Category<select name="category" required></select></label>
+      <label>Amount ($)<input type="number" name="amount" min="0.01" step="0.01" inputmode="decimal" required></label>
+      <label>Note<input type="text" name="note" maxlength="200" placeholder="Optional"></label>
+      <button type="submit" class="primary">Add</button>
+    </form>
+    <p class="error" id="formError"></p>
+    <p class="muted">Google Ads spend fills in by itself once the Google Ads script is set up. Until then, add it here under "Google Ads".</p>
+  </section>
+  <section>
+    <h2>Expenses this month</h2>
+    <div class="scroll"><table id="expenseTable"></table></div>
+  </section>
+</main>
+<script>
+(function () {
+  var key = new URLSearchParams(location.hash.slice(1)).get('k');
+  var today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+  var month = today.slice(0, 7);
+  var $ = function (id) { return document.getElementById(id); };
+
+  function money(n) {
+    n = Number(n) || 0;
+    return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-CA', { maximumFractionDigits: 2 });
+  }
+  function el(tag, attrs) {
+    var e = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { if (k === 'text') e.textContent = attrs[k]; else e.setAttribute(k, attrs[k]); });
+    for (var i = 2; i < arguments.length; i++) if (arguments[i] != null) e.appendChild(typeof arguments[i] === 'string' ? document.createTextNode(arguments[i]) : arguments[i]);
+    return e;
+  }
+  function row(cells, cls) {
+    var tr = el('tr', cls ? { class: cls } : null);
+    cells.forEach(function (c) {
+      var td = el('td', c.num ? { class: 'num' + (c.neg ? ' neg' : '') } : null);
+      if (c.node) td.appendChild(c.node); else td.textContent = c.text != null ? c.text : c;
+      tr.appendChild(td);
+    });
+    return tr;
+  }
+  function head(cols) {
+    var tr = el('tr');
+    cols.forEach(function (c) { tr.appendChild(el('th', c.num ? { class: 'num', text: c.text } : { text: c })); });
+    return tr;
+  }
+  function fill(table, header, rows, empty) {
+    table.replaceChildren();
+    if (!rows.length) { table.appendChild(row([{ text: empty }])); return; }
+    table.appendChild(head(header));
+    rows.forEach(function (r) { table.appendChild(r); });
+  }
+  function api(method, body, query) {
+    return fetch('/api/books' + (query || ''), {
+      method: method,
+      headers: { 'Content-Type': 'application/json', 'X-Books-Key': key || '' },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; }); });
+  }
+  function shift(m, by) {
+    var p = m.split('-').map(Number);
+    return new Date(Date.UTC(p[0], p[1] - 1 + by, 1)).toISOString().slice(0, 7);
+  }
+
+  function render(d) {
+    $('monthLabel').textContent = new Date(d.month + '-15T12:00:00Z').toLocaleDateString('en-CA', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    $('next').disabled = d.month >= today.slice(0, 7);
+
+    $('kpis').replaceChildren();
+    [['Net profit', money(d.netProfit), d.netProfit < 0], ['Gross profit', money(d.grossProfit), d.grossProfit < 0],
+     ['Pickups / leads', d.pickupCount + ' / ' + d.leads], ['Google Ads', money(d.adSpend)]].forEach(function (k) {
+      $('kpis').appendChild(el('div', { class: 'kpi' }, el('div', { class: 'label', text: k[0] }), el('div', { class: 'value' + (k[2] ? ' neg' : ''), text: k[1] })));
+    });
+
+    $('missingBox').hidden = !d.missing.length;
+    $('missingList').replaceChildren();
+    d.missing.forEach(function (m) {
+      var li = el('li', null, m.url ? el('a', { href: m.url, target: '_blank', rel: 'noopener', text: m.name }) : m.name);
+      li.appendChild(document.createTextNode(': needs ' + m.missing.join(' and ')));
+      $('missingList').appendChild(li);
+    });
+
+    var pl = $('plTable');
+    pl.replaceChildren();
+    var lines = [['Sold to yards', d.revenue], ['Paid to customers', -d.carCost], ['Job costs', -d.jobCosts], ['Gross profit', d.grossProfit, 'total'],
+      ['Google Ads' + (d.adSpendSource === 'entered' ? ' (entered by hand)' : ''), -d.adSpend]];
+    Object.keys(d.byCategory).forEach(function (c) { lines.push([c, -d.byCategory[c]]); });
+    lines.push(['Net profit', d.netProfit, 'total']);
+    lines.forEach(function (l) { pl.appendChild(row([l[0], { text: money(l[1]), num: true, neg: l[1] < 0 }], l[2])); });
+    if (d.incomplete) pl.appendChild(row([{ text: d.incomplete + ' pickup(s) have no prices yet, so these numbers are low.' }]));
+
+    fill($('pickupTable'), ['Date', 'Car', 'Channel', { text: 'Sold', num: true }, { text: 'Paid', num: true }, { text: 'Job', num: true }, { text: 'Profit', num: true }],
+      d.pickups.map(function (p) {
+        return row([p.date, { node: p.url ? el('a', { href: p.url, target: '_blank', rel: 'noopener', text: p.name }) : document.createTextNode(p.name) }, p.channel,
+          { text: money(p.sold), num: true }, { text: money(p.paid), num: true }, { text: money(p.job), num: true }, { text: money(p.profit), num: true, neg: p.profit < 0 }]);
+      }), 'No pickups marked Picked up this month yet.');
+
+    fill($('channelTable'), ['Channel', { text: 'Leads', num: true }, { text: 'Pickups', num: true }, { text: 'Profit', num: true }, { text: 'Ad spend', num: true }, { text: 'Per pickup', num: true }, { text: 'After ads', num: true }],
+      Object.keys(d.channels).sort(function (a, b) { return d.channels[b].leads - d.channels[a].leads; }).map(function (c) {
+        var v = d.channels[c];
+        return row([c, { text: String(v.leads), num: true }, { text: String(v.pickups), num: true }, { text: money(v.profit), num: true },
+          { text: v.adSpend != null ? money(v.adSpend) : '', num: true }, { text: v.costPerPickup != null ? money(v.costPerPickup) : '', num: true },
+          { text: v.profitAfterAds != null ? money(v.profitAfterAds) : '', num: true, neg: v.profitAfterAds < 0 }]);
+      }), 'No leads this month.');
+
+    fill($('expenseTable'), ['Date', 'Category', 'Note', { text: 'Amount', num: true }, ''],
+      d.expenses.map(function (e) {
+        var btn = el('button', { type: 'button', class: 'link', 'aria-label': 'Remove expense', text: 'Remove' });
+        btn.addEventListener('click', function () {
+          if (btn.dataset.armed !== '1') { btn.dataset.armed = '1'; btn.textContent = 'Sure?'; return; }
+          api('POST', { type: 'delete', id: e.id }).then(load).catch(function (err) { $('formError').textContent = err.message; });
+        });
+        return row([e.date, e.category, e.note || '', { text: money(e.amount), num: true }, { node: btn }]);
+      }), 'No expenses entered this month.');
+
+    var sel = document.querySelector('[name=category]');
+    if (!sel.options.length) d.categories.forEach(function (c) { sel.appendChild(el('option', { value: c, text: c })); });
+  }
+
+  function load() {
+    $('pageError').textContent = '';
+    return api('GET', null, '?month=' + month).then(render).catch(function (err) {
+      $('pageError').textContent = err.message === 'bad key' ? 'This link is missing its key. Use the link from the P&L email.' : "Couldn't load the books: " + err.message;
+    });
+  }
+
+  $('prev').addEventListener('click', function () { month = shift(month, -1); load(); });
+  $('next').addEventListener('click', function () { month = shift(month, 1); load(); });
+  document.querySelector('[name=date]').value = today;
+  $('expenseForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var f = new FormData(e.target);
+    $('formError').textContent = '';
+    if (!(Number(f.get('amount')) > 0)) { $('formError').textContent = 'Enter an amount more than $0.'; return; }
+    api('POST', { type: 'expense', date: f.get('date'), category: f.get('category'), amount: f.get('amount'), note: f.get('note') })
+      .then(function () { e.target.amount.value = ''; e.target.note.value = ''; month = String(f.get('date')).slice(0, 7); return load(); })
+      .catch(function (err) { $('formError').textContent = err.message; });
+  });
+  if (!key) $('pageError').textContent = 'This link is missing its key. Use the link from the P&L email.';
+  else load();
+})();
+</script>
+</body>
+</html>

@@ -171,7 +171,7 @@ function readBody(req) {
 // label so no stage ids live in env vars; run scripts/hubspot-setup.mjs once.
 
 const PIPELINE_LABEL = process.env.HUBSPOT_PIPELINE_LABEL || 'Scrappy Car';
-const STAGE_LABELS = { offerSent: 'Offer sent', accepted: 'Offer accepted' };
+const STAGE_LABELS = { offerSent: 'Offer sent', accepted: 'Offer accepted', pickedUp: 'Picked up', lost: 'Lost' };
 let pipelineCache = null;
 
 async function hubspot(path, options = {}) {
@@ -198,7 +198,10 @@ async function pipeline() {
     if (!s) throw new Error(`stage "${label}" missing from pipeline "${PIPELINE_LABEL}"`);
     return s.id;
   };
-  pipelineCache = { id: p.id, offerSent: stage(STAGE_LABELS.offerSent), accepted: stage(STAGE_LABELS.accepted) };
+  pipelineCache = {
+    id: p.id, offerSent: stage(STAGE_LABELS.offerSent), accepted: stage(STAGE_LABELS.accepted),
+    pickedUp: stage(STAGE_LABELS.pickedUp), lost: stage(STAGE_LABELS.lost),
+  };
   return pipelineCache;
 }
 
@@ -236,6 +239,8 @@ const LATE_DEAL_PROPS = [
   { name: 'sc_first_referrer_host', label: 'Referring site (first touch)', type: 'string', fieldType: 'text', groupName: 'scrappy_car' },
   // amount holds the low end of the offer range.
   { name: 'sc_offer_high', label: 'Offer range high', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
+  // Entered by hand at pickup; read by api/_books.js for the P&L.
+  { name: 'sc_job_costs', label: 'Job costs', description: 'Gas, tow or other money spent on this pickup', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
   // Written by api/followups.js and api/unsubscribe.js.
   { name: 'sc_followups_sent', label: 'Follow-up emails sent', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
   {
