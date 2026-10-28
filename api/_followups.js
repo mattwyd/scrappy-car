@@ -125,7 +125,7 @@ function renderText(c, { greeting, offer, car, unsub }) {
     `Call or text ${PHONE}, or reply to this email.`, '',
     'Scrappy Car', '',
     '--',
-    'Scrappy Car, 115 Island Rd, Scarborough, ON. scrappycar.ca',
+    'Scrappy Car, 125 Island Rd, Scarborough, ON. scrappycar.ca',
     "You're getting this because you asked for an offer on scrappycar.ca.",
     `Stop these emails: ${unsub}`,
   ].join('\n');
@@ -180,7 +180,7 @@ function renderHtml(c, { greeting, offer, car, unsub, buttonUrl, textUrl }) {
     </table>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:16px 28px;font-size:12px;line-height:18px;color:#6e7781;text-align:center;">
-        Scrappy Car &middot; 115 Island Rd, Scarborough, ON &middot; <a href="${SITE}" style="color:#6e7781;">scrappycar.ca</a><br>
+        Scrappy Car &middot; 125 Island Rd, Scarborough, ON &middot; <a href="${SITE}" style="color:#6e7781;">scrappycar.ca</a><br>
         You're getting this because you asked for an offer on scrappycar.ca. <a href="${esc(unsub)}" style="color:#6e7781;">Stop these emails</a>
       </td></tr>
     </table>

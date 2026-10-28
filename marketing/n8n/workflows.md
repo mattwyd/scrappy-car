@@ -114,7 +114,7 @@ Priority for build order is the number in brackets.
 ### W09 Clay partner sync [P3]
 
 - Trigger: Webhook `POST /webhook/clay-partner` (Clay HTTP API column).
-- Steps: dedupe on domain then phone, compute `distance_km` from 115 Island Rd if Clay did not, upsert `partners`, assign `partner_code` (e.g. `SC-MECH-014`), set `next_touch_at`.
+- Steps: dedupe on domain then phone, compute `distance_km` from 125 Island Rd if Clay did not, upsert `partners`, assign `partner_code` (e.g. `SC-MECH-014`), set `next_touch_at`.
 - Daily 08:00 cron: top 5 queued partners by score → Beeper "Today's partner visits/calls" with address, phone, talking points (Claude from `prompts/partner-brief.md`).
 - Follow-ups per `playbooks/outreach.md` sequence; emails drafted by Claude, approved in Beeper, sent from the outreach Gmail account, max 30 per day.
 - Gmail trigger on the outreach inbox: replies update `partners.status`.
