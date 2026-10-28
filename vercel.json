@@ -17,5 +17,8 @@
         { "key": "Content-Type", "value": "application/xml" }
       ]
     }
+  ],
+  "crons": [
+    { "path": "/api/followups", "schedule": "0 14 * * *" }
   ]
 }

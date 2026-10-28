@@ -125,11 +125,14 @@ function yardOffer({ year, make, model, bodyType, isRunning, rims, cat, dropOff,
   return Math.max(p.floor, Math.floor(price / 10) * 10);
 }
 
-// { low, high }. high never drops below low, so when the yard estimate is under
-// the ladder the customer sees a single number.
+// The customer always sees a range: when the yard estimate is at or under the
+// ladder, the top sits this far above the bottom.
+const RANGE_MIN = 50;
+
+// { low, high }
 function priceFor(vehicle) {
   const low = ladderPrice(vehicle.bodyType, vehicle.isRunning);
-  return { low, high: Math.max(low, yardOffer(vehicle)) };
+  return { low, high: Math.max(low + RANGE_MIN, yardOffer(vehicle)) };
 }
 
 function offerText(low, high) {
@@ -233,6 +236,12 @@ const LATE_DEAL_PROPS = [
   { name: 'sc_first_referrer_host', label: 'Referring site (first touch)', type: 'string', fieldType: 'text', groupName: 'scrappy_car' },
   // amount holds the low end of the offer range.
   { name: 'sc_offer_high', label: 'Offer range high', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
+  // Written by api/followups.js and api/unsubscribe.js.
+  { name: 'sc_followups_sent', label: 'Follow-up emails sent', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
+  {
+    name: 'sc_followups_stopped', label: 'Unsubscribed from follow-ups', type: 'bool', fieldType: 'booleancheckbox', groupName: 'scrappy_car',
+    options: [{ label: 'Yes', value: 'true', displayOrder: 0 }, { label: 'No', value: 'false', displayOrder: 1 }],
+  },
 ];
 
 async function ensureLateDealProps() {
@@ -309,8 +318,7 @@ function emailConfigured() {
   return !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD && process.env.ALERT_EMAILS);
 }
 
-async function notifyEmail(lines, { replyTo } = {}) {
-  const to = process.env.ALERT_EMAILS.split(',').map((a) => a.trim()).filter(Boolean);
+function gmail() {
   if (!mailer) {
     mailer = require('nodemailer').createTransport({
       service: 'gmail',
@@ -319,8 +327,17 @@ async function notifyEmail(lines, { replyTo } = {}) {
       connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 10000,
     });
   }
+  return mailer;
+}
+
+function alertEmails() {
+  return (process.env.ALERT_EMAILS || '').split(',').map((a) => a.trim()).filter(Boolean);
+}
+
+async function notifyEmail(lines, { replyTo } = {}) {
+  const to = alertEmails();
   const text = lines.filter((l) => l !== null);
-  await mailer.sendMail({
+  await gmail().sendMail({
     from: `Scrappy Car leads <${process.env.GMAIL_USER}>`,
     to,
     replyTo: replyTo || undefined,
@@ -354,6 +371,7 @@ async function notify(lines, options) {
 
 module.exports = {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled,
-  upsertContact, createDeal, acceptDeal, notify, notifyBeeper,
+  hubspot, pipeline, upsertContact, createDeal, acceptDeal, notify, notifyBeeper,
+  emailConfigured, gmail, alertEmails,
   LATE_DEAL_PROPS, ensureLateDealProps,
 };
