@@ -1,5 +1,5 @@
 const {
-  hubspot, pipeline, ensureLateDealProps, emailConfigured, gmail, alertEmails, notify,
+  hubspot, pipeline, ensureLateDealProps, resendConfigured, domainAddress, sendEmail, alertEmails, notify,
 } = require('./_lib');
 const { MAX_DAYS, SCHEDULE, daysSince, dueStep, unsubscribeUrl, renderEmail } = require('./_followups');
 
@@ -7,8 +7,9 @@ const { MAX_DAYS, SCHEDULE, daysSince, dueStep, unsubscribeUrl, renderEmail } = 
 // on day 1, 5 and 21 after their offer. Anything that moves the deal on
 // (accepted, booked, lost) or the unsubscribe link stops the emails.
 //
-// Nothing is sent unless FOLLOWUPS_LIVE=1. Otherwise, and with ?dry=1, it only
-// returns who would get which email.
+// Sent from the domain through Resend, never the Gmail account. Nothing is sent
+// unless FOLLOWUPS_LIVE=1 and Resend is set up. Otherwise, and with ?dry=1, it
+// only returns who would get which email.
 
 const DEAL_PROPS = [
   'dealname', 'amount', 'sc_offer_high', 'createdate', 'dealstage',
@@ -62,6 +63,7 @@ async function contactsFor(deals) {
 // and an unsubscribe on any of their open deals stops all of them.
 function plan(deals, contacts, now) {
   const own = new Set([process.env.GMAIL_USER, ...alertEmails()].filter(Boolean).map((a) => a.toLowerCase()));
+  const ownDomain = (process.env.RESEND_EMAIL_DOMAIN || '').toLowerCase();
   const byContact = new Map();
   deals.forEach((d) => {
     const c = contacts[d.id];
@@ -78,7 +80,7 @@ function plan(deals, contacts, now) {
     const who = `${contact.firstname || '?'} (deal ${deal.id})`;
     const email = (contact.email || '').trim();
     if (!email) return skipped.push(`${who}: no email`);
-    if (own.has(email.toLowerCase())) return skipped.push(`${who}: our own address`);
+    if (own.has(email.toLowerCase()) || (ownDomain && email.toLowerCase().endsWith(`@${ownDomain}`))) return skipped.push(`${who}: our own address`);
     if (/\btest\b/i.test(`${contact.firstname} ${p.dealname}`)) return skipped.push(`${who}: test lead`);
     if (theirs.some((d) => d.properties.sc_followups_stopped === 'true')) return skipped.push(`${who}: unsubscribed`);
     const days = daysSince(p.createdate, now);
@@ -101,7 +103,7 @@ module.exports = async (req, res) => {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ error: 'unauthorized' });
   if (!process.env.HUBSPOT_TOKEN) return res.status(200).json({ skipped: 'HUBSPOT_TOKEN missing' });
-  const live = process.env.FOLLOWUPS_LIVE === '1' && !(req.query && req.query.dry === '1') && emailConfigured();
+  const live = process.env.FOLLOWUPS_LIVE === '1' && !(req.query && req.query.dry === '1') && resendConfigured();
 
   try {
     await ensureLateDealProps();
@@ -128,16 +130,19 @@ module.exports = async (req, res) => {
       // Mark first: a failed write after a send would email them again tomorrow.
       await setSent(f.deal.id, f.step);
       const url = unsubscribeUrl(f.deal.id);
-      await gmail().sendMail({
-        from: `Scrappy Car <${process.env.GMAIL_USER}>`,
+      await sendEmail({
+        from: process.env.FOLLOWUP_FROM || `Scrappy Car <${domainAddress('hello')}>`,
         to: f.email,
-        // Replies reach both owners, not only the Gmail account it's sent from.
-        replyTo: alertEmails(),
+        // Replies reach both owners.
+        replyTo: process.env.FOLLOWUP_REPLY_TO ? process.env.FOLLOWUP_REPLY_TO.split(',').map((a) => a.trim()) : alertEmails(),
         subject: mail.subject,
         text: mail.text,
         headers: { 'List-Unsubscribe': `<${url}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+        idempotencyKey: `followup/${f.deal.id}/${f.step}`,
       });
       emails.push({ line, to: f.email, subject: mail.subject });
+      // Resend allows 2 requests a second by default.
+      await new Promise((r) => setTimeout(r, 600));
     } catch (err) {
       console.error('follow-up failed', f.deal.id, err && err.message);
       failed.push(`${line}: ${String(err && err.message).slice(0, 120)}`);

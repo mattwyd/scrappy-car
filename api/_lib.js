@@ -307,15 +307,51 @@ async function notifyBeeper(lines) {
   return { sent: true };
 }
 
+// ── Email from scrappycar.ca (Resend, set up through the Vercel integration) ──
+// Customer email only ever goes out this way, never through the Gmail account,
+// so the domain builds its own sending reputation.
+function resendConfigured() {
+  return !!(process.env.RESEND_API_KEY && process.env.RESEND_EMAIL_DOMAIN);
+}
+
+function domainAddress(local) {
+  return `${local}@${process.env.RESEND_EMAIL_DOMAIN}`;
+}
+
+// Throws on failure. A retry with the same idempotencyKey within 24 hours
+// doesn't send a second copy.
+async function sendEmail({ from, to, replyTo, subject, text, headers, idempotencyKey }) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+    },
+    body: JSON.stringify({
+      from, to: [].concat(to), reply_to: replyTo ? [].concat(replyTo) : undefined, subject, text, headers,
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`resend ${res.status}: ${body.message || body.name || 'error'}`);
+  return body.id;
+}
+
 // ── Lead alerts ───────────────────────────────────────────────────────────
-// Email to everyone in ALERT_EMAILS (comma separated), sent from the Gmail
-// account GMAIL_USER using GMAIL_APP_PASSWORD. Addresses live in env vars, not
-// here, because this repo is public. Beeper is sent as well when it is
-// configured, so the team receives both a durable email and an immediate alert.
+// Email to everyone in ALERT_EMAILS (comma separated), from the domain when
+// Resend is set up, otherwise (or if that fails) from the Gmail account
+// GMAIL_USER using GMAIL_APP_PASSWORD. Addresses live in env vars, not here,
+// because this repo is public. Beeper is sent as well when it is configured,
+// so the team receives both a durable email and an immediate alert.
 let mailer = null;
 
+function gmailConfigured() {
+  return !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+}
+
 function emailConfigured() {
-  return !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD && process.env.ALERT_EMAILS);
+  return alertEmails().length > 0 && (resendConfigured() || gmailConfigured());
 }
 
 function gmail() {
@@ -335,15 +371,20 @@ function alertEmails() {
 }
 
 async function notifyEmail(lines, { replyTo } = {}) {
-  const to = alertEmails();
   const text = lines.filter((l) => l !== null);
-  await gmail().sendMail({
-    from: `Scrappy Car leads <${process.env.GMAIL_USER}>`,
-    to,
-    replyTo: replyTo || undefined,
-    subject: text[0],
-    text: text.join('\n'),
-  });
+  const mail = { to: alertEmails(), replyTo: replyTo || undefined, subject: text[0], text: text.join('\n') };
+  // Gmail marks mail from an account to itself as read, with no notification,
+  // so the domain goes first.
+  if (resendConfigured()) {
+    try {
+      await sendEmail({ ...mail, from: `Scrappy Car leads <${domainAddress('alerts')}>` });
+      return { sent: true };
+    } catch (err) {
+      if (!gmailConfigured()) throw err;
+      console.error('alert email via Resend failed, using Gmail:', err && err.message);
+    }
+  }
+  await gmail().sendMail({ ...mail, from: `Scrappy Car leads <${process.env.GMAIL_USER}>` });
   return { sent: true };
 }
 
@@ -372,6 +413,6 @@ async function notify(lines, options) {
 module.exports = {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled,
   hubspot, pipeline, upsertContact, createDeal, acceptDeal, notify, notifyBeeper,
-  emailConfigured, gmail, alertEmails,
+  emailConfigured, resendConfigured, domainAddress, sendEmail, alertEmails,
   LATE_DEAL_PROPS, ensureLateDealProps,
 };
