@@ -123,7 +123,7 @@ function renderText(c, { greeting, offer, car, unsub }) {
     ...(c.list ? [...c.list.map((l) => `- ${l}`), ''] : []),
     ...c.after.filter(Boolean).flatMap((p) => [p, '']),
     `Call or text ${PHONE}, or reply to this email.`, '',
-    'Sean and Matt', 'Scrappy Car', '',
+    'Scrappy Car', '',
     '--',
     'Scrappy Car, 125 Island Rd, Scarborough, ON. scrappycar.ca',
     "You're getting this because you asked for an offer on scrappycar.ca.",
@@ -174,7 +174,7 @@ function renderHtml(c, { greeting, offer, car, unsub, buttonUrl, textUrl }) {
           <tr><td style="padding:0 0 24px;font-size:14px;line-height:22px;color:#57606a;">
             Prefer text? <a href="${esc(textUrl)}" style="color:#1f7a33;">Text ${esc(PHONE)}</a>, or just reply to this email.
           </td></tr>
-          <tr><td style="padding:0 0 28px;font-size:16px;line-height:24px;color:#1f2328;">Sean and Matt<br><span style="color:#57606a;">Scrappy Car</span></td></tr>
+          <tr><td style="padding:0 0 28px;font-size:16px;line-height:24px;color:#1f2328;">Scrappy Car</td></tr>
         </table>
       </td></tr>
     </table>
