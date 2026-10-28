@@ -25,7 +25,7 @@ Current state as of Oct 28, 2026. The older build plan is in `marketing/runbooks
 - [x] **Cloudflare Email Routing**: hello@scrappycar.ca forwards to mattproct@gmail.com (added Oct 28). Rules allow one destination each; forwarding to both of us would need an Email Worker. alerts@ is still dropped, on purpose.
 - [x] **Google Search Console**: https://scrappycar.ca/ verified Oct 28 through the Google Analytics tag (keep that tag on the site), sitemap submitted. Check the sitemap status leaves "Couldn't fetch" within a few days.
 - [x] **Bing Webmaster Tools**: imported from Search Console Oct 28; sitemap read successfully, 6 pages found and crawled. Check Search Performance and the AI Performance report there in a couple of weeks.
-- [ ] **Bing Places**: claim the listing (feeds ChatGPT, Copilot, Alexa).
+- [ ] **Bing Places**: claim the listing (feeds ChatGPT, Copilot, Alexa). Skipped Oct 28: "Continue with Google" kept looping back to the sign-in page in Chrome (likely third-party cookies). Next try: sign in with a Microsoft account, then Add business > Import from Google Business Profile, so nothing differs from Google.
 - [ ] **Apple Business Connect**: claim the listing (Apple Maps, Siri).
 - [ ] **Yelp, Facebook page, YellowPages.ca, 411.ca**: same name, address and phone everywhere. Then add the profile URLs to the schema `sameAs` on the site.
 - [ ] **HubSpot to Google Ads link** (Data Manager): send "Picked up" deals back as a conversion so Ads optimizes for real pickups, not just form fills.
