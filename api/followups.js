@@ -1,5 +1,5 @@
 const {
-  hubspot, pipeline, ensureLateDealProps, resendConfigured, domainAddress, sendEmail, alertEmails, notify,
+  hubspot, pipeline, ensureLateDealProps, resendConfigured, domainAddress, sendEmail, alertEmails, notify, capture,
 } = require('./_lib');
 const { MAX_DAYS, SCHEDULE, daysSince, dueStep, unsubscribeUrl, renderEmail } = require('./_followups');
 
@@ -13,7 +13,7 @@ const { MAX_DAYS, SCHEDULE, daysSince, dueStep, unsubscribeUrl, renderEmail } = 
 
 const DEAL_PROPS = [
   'dealname', 'amount', 'sc_offer_high', 'createdate', 'dealstage',
-  'vehicle_year', 'vehicle_make', 'vehicle_model', 'sc_followups_sent', 'sc_followups_stopped',
+  'vehicle_year', 'vehicle_make', 'vehicle_model', 'sc_posthog_id', 'sc_followups_sent', 'sc_followups_stopped',
 ];
 
 async function openDeals() {
@@ -119,10 +119,12 @@ module.exports = async (req, res) => {
   const failed = [];
   for (const f of due) {
     const p = f.deal.properties;
+    // Their PostHog id ties email stats to their visit; tags only allow [A-Za-z0-9_-].
+    const ph = /^[A-Za-z0-9_-]{8,100}$/.test(p.sc_posthog_id || '') ? p.sc_posthog_id : null;
     const mail = renderEmail({
       step: f.step, dealId: f.deal.id, firstName: f.contact.firstname,
       year: p.vehicle_year, make: p.vehicle_make, model: p.vehicle_model,
-      low: p.amount, high: p.sc_offer_high,
+      low: p.amount, high: p.sc_offer_high, ph,
     });
     const line = `${f.contact.firstname || f.email}, ${[p.vehicle_year, p.vehicle_make, p.vehicle_model].join(' ')}: email ${f.step} of ${SCHEDULE.length} (day ${f.days})`;
     if (!live) { emails.push({ line, to: f.email, subject: mail.subject }); continue; }
@@ -137,10 +139,13 @@ module.exports = async (req, res) => {
         replyTo: process.env.FOLLOWUP_REPLY_TO ? process.env.FOLLOWUP_REPLY_TO.split(',').map((a) => a.trim()) : alertEmails(),
         subject: mail.subject,
         text: mail.text,
+        html: mail.html,
         headers: { 'List-Unsubscribe': `<${url}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+        tags: { kind: 'followup', deal: f.deal.id, step: f.step, ph },
         idempotencyKey: `followup/${f.deal.id}/${f.step}`,
       });
       emails.push({ line, to: f.email, subject: mail.subject });
+      await capture('followup_sent', ph || `deal-${f.deal.id}`, { deal_id: f.deal.id, step: f.step, days: f.days });
       // Resend allows 2 requests a second by default.
       await new Promise((r) => setTimeout(r, 600));
     } catch (err) {

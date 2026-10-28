@@ -320,7 +320,7 @@ function domainAddress(local) {
 
 // Throws on failure. A retry with the same idempotencyKey within 24 hours
 // doesn't send a second copy.
-async function sendEmail({ from, to, replyTo, subject, text, headers, idempotencyKey }) {
+async function sendEmail({ from, to, replyTo, subject, text, html, headers, tags, idempotencyKey }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -329,13 +329,40 @@ async function sendEmail({ from, to, replyTo, subject, text, headers, idempotenc
       ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
     body: JSON.stringify({
-      from, to: [].concat(to), reply_to: replyTo ? [].concat(replyTo) : undefined, subject, text, headers,
+      from, to: [].concat(to), reply_to: replyTo ? [].concat(replyTo) : undefined, subject, text, html, headers,
+      // Resend echoes tags back in webhook events (api/email-events.js).
+      tags: tags ? Object.entries(tags).filter(([, v]) => v).map(([name, value]) => ({ name, value: String(value) })) : undefined,
     }),
     signal: AbortSignal.timeout(10000),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`resend ${res.status}: ${body.message || body.name || 'error'}`);
   return body.id;
+}
+
+// ── PostHog (server-side events) ──────────────────────────────────────────
+// Same project as track.js. The key is the public browser key, so it's fine in
+// the repo. distinctId is the visitor's PostHog id when we have it, which puts
+// email events on the same person as their visit to the site.
+const POSTHOG_KEY = process.env.POSTHOG_KEY || 'phc_yRmsDYETa67YfsnAw3yg8zLsuoqrrBrGbRMehHjNNQcF';
+const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
+
+// Never throws: stats must not break sending or webhooks.
+async function capture(event, distinctId, properties = {}) {
+  try {
+    const res = await fetch(`${POSTHOG_HOST}/i/v0/e/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: POSTHOG_KEY, event, distinct_id: distinctId,
+        properties: { brand: 'scrappycar', source: 'server', ...properties },
+      }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) console.error('posthog capture failed:', event, res.status);
+  } catch (err) {
+    console.error('posthog capture failed:', event, err && err.message);
+  }
 }
 
 // ── Lead alerts ───────────────────────────────────────────────────────────
@@ -413,6 +440,6 @@ async function notify(lines, options) {
 module.exports = {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled,
   hubspot, pipeline, upsertContact, createDeal, acceptDeal, notify, notifyBeeper,
-  emailConfigured, resendConfigured, domainAddress, sendEmail, alertEmails,
+  emailConfigured, resendConfigured, domainAddress, sendEmail, alertEmails, capture,
   LATE_DEAL_PROPS, ensureLateDealProps,
 };
