@@ -27,7 +27,7 @@
   var offerTimer = null;
   var reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-  // Custom combobox — the native <datalist> dropdown is unstyleable and looks
+  // Custom combobox: the native <datalist> dropdown is unstyleable and looks
   // like a browser artifact next to the rest of the page.
   function combobox(rootId, config) {
     var root = document.getElementById(rootId);
@@ -66,7 +66,7 @@
 
       if (!filtered.length) {
         panel.innerHTML = '<div class="cbox-empty">' +
-          (config.emptyText || "Nothing matched — type it in and we'll sort it out.") + '</div>';
+          (config.emptyText || "Nothing matched. Type it in and we'll sort it out.") + '</div>';
         return;
       }
       panel.innerHTML = filtered.map(function(o, i) {
@@ -336,7 +336,7 @@
     onSelect: function(opt) { modelTypesByName[opt.label.toLowerCase()] = opt.type; },
   });
 
-  // Year stepper — +/- taps, no scroll capture. Opens on 2011.
+  // Year stepper: +/- taps, no scroll capture. Opens on 2011.
   var yearHidden = document.getElementById('f_year');
   (function buildYearStepper() {
     var START = 2011, MIN = 1980, MAX = new Date().getFullYear() + 1;
@@ -356,7 +356,7 @@
     render();
   })();
 
-  // Odometer slider — nobody knows their exact km; nearest 10k is plenty.
+  // Odometer slider: nobody knows their exact km; nearest 10k is plenty.
   (function odometer() {
     var range = document.getElementById('kmRange');
     var read = document.getElementById('kmRead');
@@ -370,9 +370,9 @@
     update();
   })();
 
-  // Location — fuzzy dropdown seeded with our coverage area; free text still allowed.
+  // Location: fuzzy dropdown seeded with our coverage area; free text still allowed.
   var cityCombo = combobox('cb_city', {
-    emptyText: "Not on the list? Type it in — if we can get there, we will.",
+    emptyText: "Not on the list? Type it in. If we can get there, we will.",
   });
   cityCombo.setOptions([
     'Scarborough','Port Union','West Rouge','Rouge Hill','Highland Creek','Malvern','Agincourt',
@@ -484,7 +484,7 @@
         modelCombo.setEnabled(true, models.length ? 'Start typing… e.g. ' + models[0].name : 'Type your model');
         modelHint.textContent = models.length
           ? models.length + ' ' + year + ' ' + make + ' models on file'
-          : "None on file for that year — type it in and we'll sort it out.";
+          : "None on file for that year. Type it in and we'll sort it out.";
       })
       .catch(function() {
         modelCombo.setEnabled(true, 'Type your model');
@@ -549,7 +549,7 @@
           .catch(function() {});
       });
     })).then(function() {
-      label.textContent = photos.length ? photos.length + ' photo' + (photos.length > 1 ? 's' : '') + ' added — tap to add more' : 'Tap to add photos';
+      label.textContent = photos.length ? photos.length + ' photo' + (photos.length > 1 ? 's' : '') + ' added. Tap to add more' : 'Tap to add photos';
       if (photos.length) track('photo_uploaded', { count: photos.length });
       scheduleRefresh();
     });

@@ -1,4 +1,4 @@
-// Model lists come from NHTSA's vPIC database — free, no key, and it knows the
+// Model lists come from NHTSA's vPIC database: free, no key, and it knows the
 // body style, which is what actually sets the price band.
 const CACHE = new Map();
 
