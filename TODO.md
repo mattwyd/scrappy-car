@@ -22,7 +22,7 @@ Current state as of Oct 28, 2026. The older build plan is in `marketing/runbooks
 ## Needs a sign-in (do one at a time in the browser pane)
 
 - [ ] **Google Business Profile**: change the address to **115** Island Rd (it says 125; Google may ask to re-verify), check the website link goes to https://scrappycar.ca, set the real hours (it says open 24 hours, the site says 7am to 9pm), reply to the new 5-star review, start asking every pickup for a review.
-- [ ] **Cloudflare Email Routing**: make sure mail sent to hello@scrappycar.ca reaches us (customers may write to it directly).
+- [x] **Cloudflare Email Routing**: hello@scrappycar.ca forwards to mattproct@gmail.com (added Oct 28). Rules allow one destination each; forwarding to both of us would need an Email Worker. alerts@ is still dropped, on purpose.
 - [ ] **Google Search Console**: verify scrappycar.ca and submit the sitemap.
 - [ ] **Bing Webmaster Tools**: import from Search Console, check the pages get indexed (Bing had 0 pages on Oct 27; ChatGPT and Copilot search through Bing).
 - [ ] **Bing Places**: claim the listing (feeds ChatGPT, Copilot, Alexa).
