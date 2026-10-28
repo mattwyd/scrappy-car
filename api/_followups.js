@@ -91,7 +91,7 @@ function copyFor(step, { car, short, offer, range }) {
       preview: `Your ${offer} offer still stands. Here's how pickup works.`,
       before: [`Your offer of ${offer} for the ${car} still stands, as long as the car is as you described it.`],
       list: [
-        'We pick a time that suits you, 7am to 9pm, any day of the week.',
+        'We pick a time that suits you, any day of the week.',
         'The tow is free and we bring the paperwork.',
         "Have your ownership handy and take your plates off. You're paid in cash when we load the car.",
       ],

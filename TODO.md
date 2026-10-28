@@ -11,7 +11,7 @@ Current state as of Oct 28, 2026. The older build plan is in `marketing/runbooks
 - **Books (P&L)**: private page at `/books` (link with key in `scrappy-car-private/books-link.txt`). P&L email on the 1st, missing-price reminder on Mondays (`api/books-daily.js`).
 - **Google Ads spend** sent daily 5 to 6am by the "Scrappy Car books: daily ad spend" script in Google Ads.
 - **HubSpot**: deal page shows the "Scrappy Car deal" card; fields grouped into money, car, lead source, follow-ups; test deals marked Lost as "Test or duplicate".
-- **Site**: one business name in the schema (Scrappy Car, with the Google name as alternateName), city in the home H1, schema links to the Google listing, map shows the listing, address 115 Island Rd M1C 2P7 everywhere, social card image, compressed truck photo, no em dashes. Submitted to Bing with IndexNow.
+- **Site** matches the Google profile: schema name "Scrappy Car - Junk Cars, Cars 4 Cash" (alternate "Scrappy Car"), open 24 hours, links to the profile and Instagram, city in the home H1, schema links to the Google listing, map shows the listing, address 115 Island Rd M1C 2P7 everywhere, social card image, compressed truck photo, no em dashes. Submitted to Bing with IndexNow.
 
 ## Every pickup (Sean)
 
@@ -21,7 +21,7 @@ Current state as of Oct 28, 2026. The older build plan is in `marketing/runbooks
 
 ## Needs a sign-in (do one at a time in the browser pane)
 
-- [ ] **Google Business Profile**: change the address to **115** Island Rd (it says 125; Google may ask to re-verify), check the website link goes to https://scrappycar.ca, set the real hours (it says open 24 hours, the site says 7am to 9pm), reply to the new 5-star review, start asking every pickup for a review.
+- [ ] **Google Business Profile** stays as it is (Matt's rule: when the site and the profile disagree, change the site; editing the profile risks re-verification and trust). Still worth doing there without editing facts: reply to the new 5-star review and ask every pickup for a review. Two values on the profile look wrong, left alone for now: the address is 125 Island Rd (we're at 115), and the website link is https://scrappycar.net/ (a redirect; https://scrappycar.ca/?utm_source=google&utm_medium=organic&utm_campaign=gbp would also make profile visits show as "gbp" in PostHog).
 - [x] **Cloudflare Email Routing**: hello@scrappycar.ca forwards to mattproct@gmail.com (added Oct 28). Rules allow one destination each; forwarding to both of us would need an Email Worker. alerts@ is still dropped, on purpose.
 - [ ] **Google Search Console**: verify scrappycar.ca and submit the sitemap.
 - [ ] **Bing Webmaster Tools**: import from Search Console, check the pages get indexed (Bing had 0 pages on Oct 27; ChatGPT and Copilot search through Bing).
@@ -34,9 +34,8 @@ Current state as of Oct 28, 2026. The older build plan is in `marketing/runbooks
 
 ## Needs a decision
 
-- [ ] Real opening hours: 7am to 9pm (site) or 24 hours (Google)?
+- [ ] Address on the site: 115 Island Rd (true) or 125 Island Rd (what the Google profile says)? The site says 115 since Oct 28.
 - [ ] About Us names "Marce Anthony" and "Ryan Basalt": real, or replace?
-- [ ] Google Business Profile name is "Scrappy Car - Junk Cars, Cars 4 Cash". Google's rules want the real-world name ("Scrappy Car"); a keyword name can get the listing suspended if reported, but renaming may trigger re-verification.
 - [ ] Billing name typo "Scappy Car Ltd".
 
 ## Worth building next
