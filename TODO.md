@@ -65,6 +65,18 @@ Open anything that needs a sign-in in Chrome (Claude in Chrome), not the built-i
 - [ ] Missed-call text-back and review requests (`marketing/runbooks/setup.md` weeks 2 to 3).
 - [ ] After two weeks of data, set KPI targets (leads a week, pickup rate, cost per pickup).
 
+## Experiments (interview stories)
+
+Run real experiments that make good interview examples: a clear hypothesis, a metric that ties to money, a control, and an honest result, including "no effect" and "not enough data". Volume is a few leads a week, so prefer metrics that happen often (form steps, offer views), long runs, or holdouts, and write down the minimum effect each run can detect before starting. PostHog (feature flags and experiments, free tier) is already on every page; Google Ads has a built-in Experiments tool. Keep a short write-up per experiment in `marketing/experiments/`: hypothesis, design, dates, sample size, result, decision.
+
+- [ ] **Follow-up email holdout**: hold back a random 20% of "Offer sent" deals from the day 1/5/21 emails and compare pickup rate within 28 days. Measures what the emails actually add, not just open rates (causal lift, not correlation).
+- [ ] **Offer range wording**: the offer always shows a range (Matt's rule), so test how it's presented, e.g. "$300 to $450" against "$300, up to $450 with rims and cat". Metric: offer accepted rate.
+- [ ] **Pricing model accuracy in production**: log the predicted yard price on every pickup next to what the yard actually paid. Track median error over time against the 99-quote backtest ($50 median error). An offline-to-online model evaluation story.
+- [ ] **Form friction**: make the photo step skippable up front, or move it after the offer, and measure step 2 completion and quotes per form start. Split results by iOS and Android.
+- [ ] **Ads bidding**: Google Ads campaign experiment, Maximize clicks against Maximize conversions (50/50 split), judged on cost per pickup from Books, not cost per click.
+- [ ] **AI search visibility**: before and after the scrap price guide page goes live, ask a fixed set of about 8 questions ("best junk car removal in Scarborough") in Gemini with search, ChatGPT and Perplexity, and count how often Scrappy Car is named. Content change as the treatment, citation rate as the metric.
+- [ ] **Speed to lead**: call back new quotes within 5 minutes against the usual delay (alternate by day), and compare pickup rate.
+
 ## Can't do on free HubSpot
 
 - Required fields when a deal enters a stage. The Monday missing-price reminder covers it.
