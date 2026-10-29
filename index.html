@@ -19,6 +19,9 @@
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    // Only the live site reports to Google Ads and Analytics. Vercel previews
+    // and local testing would otherwise count test quotes as conversions.
+    if (!/^(www\.)?scrappycar\.ca$/.test(location.hostname)) gtag = function(){};
     gtag('js', new Date());
     gtag('config', 'AW-18023473103');
     // Calls from website visitors: swaps the shown number for a Google forwarding number for ad visitors.

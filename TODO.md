@@ -4,11 +4,10 @@ Current state as of Oct 28, 2026. The older build plan is in `marketing/runbooks
 
 ## Pick up here next
 
-1. **Apple Business** (was Apple Business Connect, now business.apple.com): claim the listing with exactly the Google profile details: "Scrappy Car - Junk Cars, Cars 4 Cash", 125 Island Rd, Scarborough, ON M1C 2P7, (647) 204-4200, open 24 hours, https://scrappycar.ca, auto wrecker.
-2. **Bing Places**: "Continue with Google" never kept the session (tried Oct 28). Try a Microsoft account, then Add business > Import from Google Business Profile.
-3. **Yelp, Facebook page, YellowPages.ca, 411.ca** with the same details, then add their URLs to the schema `sameAs` in `index.html` and the three `junk-cars/` pages that carry the business schema.
-4. **HubSpot to Google Ads link** (Google Ads > Data Manager): send "Picked up" deals back as a conversion.
-5. Check that Search Console's sitemap status has moved off "Couldn't fetch".
+1. **Bing Places**: "Continue with Google" never kept the session (tried Oct 28). Try a Microsoft account, then Add business > Import from Google Business Profile.
+2. **Yelp, Facebook page, YellowPages.ca, 411.ca** with the same details, then add their URLs to the schema `sameAs` in `index.html` and the three `junk-cars/` pages that carry the business schema.
+3. **Apple Business** (on hold, Oct 28): organization "Scrappy Car Ltd" exists on Matt's existing Apple Account (brand and location features only). Verification needs two methods and Matt can't verify the business yet. Domain Validation is half done: the `apple-domain-verification` TXT record is live at the scrappycar.ca root in Cloudflare (keep it), it just needs Verify clicked. The second method is a document upload (Certificate of Incorporation, business registration, utility bill or lease) in the name "Scrappy Car Ltd". After that, add the location with exactly the Google profile details: "Scrappy Car - Junk Cars, Cars 4 Cash", 125 Island Rd, Scarborough, ON M1C 2P7, (647) 204-4200, open 24 hours, https://scrappycar.ca, auto wrecker.
+4. **HubSpot to Google Ads link** (parked Oct 28): Google Ads > Data manager > HubSpot > "Use direct connection" > Authorize failed with "Failed to authorize access", and no Google app got installed in HubSpot (portal mQinc is the right one). Worth little until the campaign bids on conversions: "Maximize clicks" ignores them, and Books already shows cost per pickup by channel. Retry when pickups reach about 15 a month and bidding moves to Maximize conversions. The site already sends hashed email and phone with the offer conversion (enhanced conversions for leads), so matching will work once it connects.
 
 Open anything that needs a sign-in in Chrome (Claude in Chrome), not the built-in browser pane, where sign-ins don't stick. Matt does every sign-in, OAuth approval and account creation himself.
 
@@ -23,8 +22,9 @@ Open anything that needs a sign-in in Chrome (Claude in Chrome), not the built-i
 - **Instant offer** shows a range: low = the flat ladder, high = the yard's likely price minus $100, always at least $50 apart (`api/_lib.js`).
 - **Follow-up emails** to leads still at "Offer sent", on day 1, 5 and 21, from hello@scrappycar.ca through Resend. Stops when the deal moves, on unsubscribe, bounce or spam complaint. Daily cron at 10am Toronto (`api/followups.js`, copy in `api/_followups.js`). Live since Oct 28: the first run sent 5 emails (three first emails, two second emails), all delivered. Turn off by removing `FOLLOWUPS_LIVE` in Vercel and redeploying; `?dry=1` with the cron secret shows who would get what.
 - **Lead alerts** by email from alerts@scrappycar.ca (Gmail as fallback) and Beeper.
+- **Google tag** (Ads and GA4) only reports from scrappycar.ca. On Vercel previews and localhost `gtag` is a no-op, so test quotes never count as conversions; PostHog tags those visits `env: preview` or `dev`. Don't accept the vercel.app "suggested domains" in the Google tag settings.
 - **Email domain**: scrappycar.ca verified in Resend (DKIM, SPF, bounce MX and a monitor-only DMARC in Cloudflare DNS). Cloudflare Email Routing forwards hello@ and matt@ to Matt's Gmail, seanq@ to Sean's.
-- **Search**: Google Search Console verified through the Google Analytics tag (keep the tag), sitemap submitted. Bing Webmaster Tools imported from Search Console, all 6 pages crawled. IndexNow key file at the site root pushes changed pages to Bing.
+- **Search**: Google Search Console verified through the Google Analytics tag (keep the tag), sitemap read (6 pages). Bing Webmaster Tools imported from Search Console, all 6 pages crawled. IndexNow key file at the site root pushes changed pages to Bing.
 - **Email stats** in PostHog: `followup_sent`, `followup_clicked`, `followup_delivered`, `followup_bounced`, `followup_complained`.
 - **Books (P&L)**: private page at `/books` (link with key in `scrappy-car-private/books-link.txt`). P&L email on the 1st, missing-price reminder on Mondays (`api/books-daily.js`).
 - **Google Ads spend** sent daily 5 to 6am by the "Scrappy Car books: daily ad spend" script in Google Ads.
@@ -42,12 +42,13 @@ Open anything that needs a sign-in in Chrome (Claude in Chrome), not the built-i
 
 - [ ] **Google Business Profile** stays as it is (Matt's rule: when the site and the profile disagree, change the site; editing the profile risks re-verification and trust). Still worth doing there without editing facts: reply to the new 5-star review and ask every pickup for a review. Two values on the profile look wrong, left alone for now: the address is 125 Island Rd while the yard is at 115 (the site shows 125 to match, Matt's call on Oct 28), and the website link is https://scrappycar.net/ (a redirect; https://scrappycar.ca/?utm_source=google&utm_medium=organic&utm_campaign=gbp would also make profile visits show as "gbp" in PostHog).
 - [x] **Cloudflare Email Routing**: hello@scrappycar.ca forwards to Matt's Gmail (added Oct 28). Rules allow one destination each; forwarding to both of us would need an Email Worker. alerts@ is still dropped, on purpose.
-- [x] **Google Search Console**: https://scrappycar.ca/ verified Oct 28 through the Google Analytics tag (keep that tag on the site), sitemap submitted. Check the sitemap status leaves "Couldn't fetch" within a few days.
+- [x] **Google Search Console**: https://scrappycar.ca/ verified Oct 28 through the Google Analytics tag (keep that tag on the site), sitemap read successfully Oct 28 (6 pages).
 - [x] **Bing Webmaster Tools**: imported from Search Console Oct 28; sitemap read successfully, 6 pages found and crawled. Check Search Performance and the AI Performance report there in a couple of weeks.
 - [ ] **Bing Places**: claim the listing (feeds ChatGPT, Copilot, Alexa). Skipped Oct 28: "Continue with Google" kept looping back to the sign-in page in Chrome (likely third-party cookies). Next try: sign in with a Microsoft account, then Add business > Import from Google Business Profile, so nothing differs from Google.
-- [ ] **Apple Business** (Apple Maps, Siri): see "Pick up here next".
+- [ ] **Apple Business** (Apple Maps, Siri): on hold until there is a document to verify the business; see "Pick up here next".
 - [ ] **Yelp, Facebook page, YellowPages.ca, 411.ca**: same name, address and phone everywhere. Then add the profile URLs to the schema `sameAs` on the site.
-- [ ] **HubSpot to Google Ads link** (Data Manager): send "Picked up" deals back as a conversion so Ads optimizes for real pickups, not just form fills.
+- [ ] **HubSpot to Google Ads link** (Data Manager): parked, see "Pick up here next".
+- [ ] **Google Ads second admin**: tag diagnostics asks for a second administrator so the account can't get locked out. Invite Sean (Admin > Access and security).
 - [ ] **Google Ads**: the ad says "Up to $4000 for Your Junk Car", but offers and yard quotes top out around $1,500. Change it or Google may call it misleading. Also widen the location targeting; spend is well under budget.
 - [ ] Optional: turn on CAD in HubSpot (the account only has USD, so amounts show as US dollars).
 

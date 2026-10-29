@@ -83,7 +83,8 @@
   // whether one was present, so PostHog holds no ad-click identifiers.
   posthog.register({
     brand: BRAND,
-    env: /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'dev' : 'prod',
+    env: /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'dev'
+      : /\.vercel\.app$/.test(location.hostname) ? 'preview' : 'prod',
     page_area: area,
     channel: attr.last.channel,
     first_channel: attr.first.channel,
