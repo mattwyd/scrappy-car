@@ -1,6 +1,6 @@
 const { readBody } = require('./_lib');
 const {
-  CATEGORIES, keyOk, torontoDate, money, addExpense, removeExpense, setAdSpend, pnl,
+  CATEGORIES, keyOk, torontoDate, money, addExpense, removeExpense, setAdSpend, reconcile, pnl,
 } = require('./_books');
 
 // Backs the private Books page (/books) and the Google Ads spend script.
@@ -10,6 +10,7 @@ const {
 //   POST { type: 'expense', date, category, amount, note }
 //   POST { type: 'delete', id }             -> removes one expense
 //   POST { type: 'ad_spend', days: [{ date, cost }] }   (from Google Ads)
+//   POST { type: 'reconcile' }               -> P&L rows for accepted leads now, not at the daily run
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -39,6 +40,7 @@ module.exports = async (req, res) => {
       const days = Array.isArray(body.days) ? body.days.slice(0, 60) : [];
       return res.status(200).json({ saved: await setAdSpend(days) });
     }
+    if (body.type === 'reconcile') return res.status(200).json(await reconcile());
     return res.status(400).json({ error: 'unknown request' });
   } catch (err) {
     console.error('books failed:', err && err.message);

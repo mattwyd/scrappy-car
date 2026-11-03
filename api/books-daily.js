@@ -1,8 +1,9 @@
 const { notify } = require('./_lib');
-const { booksKey, torontoDate, previousMonth, closedRecords, missingPrices, pnl, reportLines } = require('./_books');
+const { booksKey, torontoDate, previousMonth, reconcile, issues, pnl, reportLines } = require('./_books');
 
 // Daily cron (vercel.json). On the 1st it sends last month's P&L to the
-// owners. On Mondays it lists closed Airtable P&L rows still missing their prices.
+// owners. Every day it gives each accepted lead a P&L row (reconcile). On
+// Mondays it lists picked-up deals missing prices and bookings past their day.
 //
 // ?run=report or ?run=missing forces one; ?dry=1 returns it without sending.
 
@@ -21,17 +22,18 @@ module.exports = async (req, res) => {
   const out = { today };
 
   try {
+    out.reconciled = dry ? 'skipped (dry run)' : await reconcile();
     if (q.run === 'report' || (!q.run && today.endsWith('-01'))) {
       const r = await pnl(previousMonth(today.slice(0, 7)));
       out.report = reportLines(r, link);
       if (!dry) await notify(out.report);
     }
     if (q.run === 'missing' || (!q.run && weekday === 1)) {
-      const missing = missingPrices(await closedRecords());
+      const missing = await issues();
       out.missing = missing;
       if (missing.length && !dry) {
         await notify([
-          `🧾 ${missing.length} Airtable P&L row(s) need prices`,
+          `🧾 ${missing.length} deal(s) need something in Airtable`,
           '',
           ...missing.map((m) => `${m.name}: ${m.missing.join(', ')}`),
           '',
