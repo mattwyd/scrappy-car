@@ -198,7 +198,6 @@ async function save(b) {
           location,
           description: [
             `${carName(car)}${car.dropOff ? ', dropped off at our yard' : ''}`,
-            `Offer: ${price.text}, confirmed when we see the car`,
             'Please have the ownership and the keys ready.',
             `Questions or need another time? Call or text ${BUSINESS_PHONE}.`,
             'https://scrappycar.ca',
@@ -209,7 +208,6 @@ async function save(b) {
           location,
           description: [
             [name, phone, email].filter(Boolean).join(', '),
-            `Offer: ${price.text}`,
             notes || null,
             recId ? `Airtable: ${leadUrl(recId)}` : null,
           ].filter(Boolean).join('\n'),
