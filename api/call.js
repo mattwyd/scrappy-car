@@ -256,9 +256,12 @@ async function save(b) {
     }
   }
 
-  // Alert the team about new phone leads and anything accepted or booked; an
-  // update to a lead that's already known stays quiet.
-  const heading = slot ? `📅 ${car.dropOff ? 'DROP-OFF' : 'PICKUP'} BOOKED, ${slot.label}`
+  // Alert the team about new phone leads and offers accepted on a call; an
+  // update to a lead that's already known stays quiet. A booking is made by one
+  // of us and lands on the team calendar, so it only alerts when the team invite
+  // or the Airtable save failed and the alert is the only record of it.
+  const bookingQuiet = slot && event && event.team && !warnings.length;
+  const heading = slot ? (bookingQuiet ? null : `📅 ${car.dropOff ? 'DROP-OFF' : 'PICKUP'} BOOKED, ${slot.label}`)
     : outcome === 'accepted' ? `💰 OFFER ACCEPTED ON A CALL${agreed ? `, $${agreed}` : price ? `, ${price.text}` : ''}`
       : !id && outcome !== 'lost' ? `📞 PHONE LEAD${price ? `, ${price.text}` : ''}` : null;
   if (heading) {
