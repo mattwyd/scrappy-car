@@ -97,9 +97,6 @@
     .days button[aria-pressed="true"], .windows button[aria-pressed="true"] { background: var(--green); color: #000; border-color: var(--green); font-weight: 700; }
     .windows { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .4rem; margin-top: .6rem; }
     .windows button { display: grid; text-align: left; gap: .1rem; }
-    .windows small { font-size: .72rem; color: var(--muted); }
-    .windows button[aria-pressed="true"] small { color: #000; }
-    .windows button.busy small { color: var(--amber); }
 
     .panel .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem 1rem; margin-bottom: .75rem; }
     .panel h3 { font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .4rem; }
@@ -208,16 +205,8 @@
       <div class="if"><strong>Engine or transmission missing, or big parts pulled?</strong> Put it in the notes; the yard price drops.</div>
     </section>
 
-    <section id="s-ownership" data-step="ownership" class="node decision">
-      <h2><span class="badge"><b>5</b></span>Ownership</h2>
-      <p class="say">Is the ownership in your name?</p>
-      <div class="choice" data-name="ownership"><button type="button" data-value="yes">Yes, in their name</button><button type="button" data-value="owner">Owner will be there</button><button type="button" data-value="no">No ownership</button></div>
-      <div class="if" id="noOwnership"><strong>No ownership?</strong> We need the ownership to buy the car. Can the registered owner be there at pickup, or can they get a replacement from ServiceOntario? If not, save it as lost: "No ownership".</div>
-      <div class="exits"><span class="exit end">No ownership: save as lost</span></div>
-    </section>
-
     <section id="s-location" data-step="location" class="node">
-      <h2><span class="badge"><b>6</b></span>Address</h2>
+      <h2><span class="badge"><b>5</b></span>Address</h2>
       <p class="say">What's the exact address where the car is? Any parking or access I should tell the driver about?</p>
       <div class="grid">
         <label class="wide">Exact pickup address<input name="address" placeholder="123 Main St, Unit 4, Scarborough, ON M1C 1A1" autocomplete="off"></label>
@@ -229,12 +218,12 @@
     </section>
 
     <section id="s-offer" data-step="offer" class="node decision">
-      <h2><span class="badge"><b>7</b></span>Offer</h2>
+      <h2><span class="badge"><b>6</b></span>Offer</h2>
       <div class="offer-big none" id="offerBig">Need year, make and model</div>
       <p class="muted" id="offerNote"></p>
       <p class="say" id="offerSay">Based on what you've told me, we can pay <span data-fill="range">that range</span>. The final number is when we see it, and the tow is free.</p>
       <div class="grid">
-        <label>Agreed price <span class="muted">(blank = low end)</span><input name="agreed" inputmode="numeric" autocomplete="off"></label>
+        <label class="wide">Notes <span class="muted">(what they hope to get, anything else; same as the Notes box)</span><textarea name="notes" rows="3" placeholder="Hoping for about $500, another yard offered $400, gate code..."></textarea></label>
       </div>
       <div class="objections" style="margin-top:.6rem">
         <details><summary>"That's too low"</summary><p class="say">I hear you. That includes the free tow, and we pay on pickup with no haggling at the door. What number did you have in mind?</p><p class="muted">If their number is inside the range and the rims and cat check out, you can meet it. Above the top of the range, offer the top and note their number.</p></details>
@@ -243,7 +232,7 @@
         <details><summary>"It still runs, it's worth more"</summary><p class="say">If it runs and drives we pay the top of the range. If it's worth fixing, a private sale may get you more, and that's fine. We're the fast, no-hassle option.</p></details>
       </div>
       <div class="row">
-        <button type="button" class="primary" data-outcome="accepted">They accept: book it</button>
+        <button type="button" class="primary" data-outcome="accepted">Book a pickup</button>
         <button type="button" data-outcome="offer">Thinking: save offer</button>
       </div>
       <div class="row">
@@ -257,8 +246,8 @@
     </section>
 
     <section id="s-book" data-step="book" class="node">
-      <h2><span class="badge"><b>8</b></span>Book <small id="bookHint">2-hour windows, 8am to 8pm</small></h2>
-      <p class="say">What day works for the pickup? We come in a 2-hour window.</p>
+      <h2><span class="badge"><b>7</b></span>Book <small id="bookHint">1-hour windows, 8am to 10pm</small></h2>
+      <p class="say">What day and time works for the pickup? We come in a 1-hour window.</p>
       <div class="days" id="days"></div>
       <div class="row" style="margin-top:.5rem"><label style="width:auto">Later date<input type="date" id="laterDate"></label></div>
       <div class="windows" id="windows"></div>
@@ -270,7 +259,7 @@
     </section>
 
     <section id="s-close" data-step="close" class="node">
-      <h2><span class="badge"><b>9</b></span>Close</h2>
+      <h2><span class="badge"><b>8</b></span>Close</h2>
       <p class="say" id="closeSay">You're booked. Please have the ownership and the keys ready. If anything changes, call or text us at (647) 204-4200. Thanks!</p>
       <div class="row"><button type="button" id="doneBtn" class="primary">Done, next call</button></div>
     </section>
@@ -293,7 +282,7 @@
     </div>
     <div class="card">
       <h3>Notes</h3>
-      <textarea name="notes" rows="4" placeholder="Damage, parts missing, competitor offer, gate code..."></textarea>
+      <textarea name="notes" rows="4" placeholder="What they hope to get, damage, parts missing, competitor offer, gate code..."></textarea>
       <div class="row"><button type="button" data-outcome="save" id="saveBtn">Save</button><a id="airtableLink" href="#" target="_blank" rel="noopener" class="hidden">Open in Airtable</a></div>
     </div>
     <div class="card">
@@ -316,28 +305,29 @@
     else key = localStorage.getItem(KEY_STORE);
   } catch (e) {}
   var DRAFT = 'scrappy-call-draft';
+  var WINDOWS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // pickup start hours, same as api/_calendar.js
+  var BOOKED = ['Appointment Scheduled', 'Picked up', 'Closed']; // stages past booking
   var TOWNS = ['Scarborough','Port Union','West Rouge','Rouge Hill','Highland Creek','Malvern','Agincourt','Guildwood','Morningside','Birch Cliff','Cliffside','Wexford','Steeles',"L'Amoreaux",'East York','Leaside','The Beaches','Danforth','East Toronto','North York','Don Mills','Toronto','Pickering','Ajax','Whitby','Oshawa','Courtice','Bowmanville','Clarington','Uxbridge','Markham','Unionville','Stouffville','Richmond Hill','Vaughan','Thornhill'];
   var STEPS = [
     { id: 'start', label: 'Who is calling', exit: 'Wants parts? End call' },
     { id: 'caller', label: 'Caller' },
     { id: 'car', label: 'Car' },
     { id: 'condition', label: 'Condition' },
-    { id: 'ownership', label: 'Ownership', exit: 'None? Lost' },
     { id: 'location', label: 'Address' },
     { id: 'offer', label: 'Offer', exit: 'Thinking? Save offer. No? Lost' },
     { id: 'book', label: 'Book' },
     { id: 'close', label: 'Close' }
   ];
 
-  var S, price = null, slots = {}, saving = false, started = null, current = 'start', lastLookup = '';
+  var S, price = null, saving = false, started = null, current = 'start', lastLookup = '';
   var $ = function(id) { return document.getElementById(id); };
   var sheet = document.body;
 
   function blank() {
-    return { mode: '', id: null, url: '', stage: '', lead: '', saved_offer: '', range: '', pickup: '', photos: [],
+    return { mode: '', id: null, url: '', stage: '', lead: '', saved_offer: '', photos: [],
       name: '', phone: '', email: '', year: '', make: '', model: '', body_type: '', km: '', city: '', address: '',
-      runs: 'unknown', rims: 'unknown', cat: 'unknown', keys: '', ownership: '', drop_off: false,
-      agreed: '', lost_reason: '', notes: '', channel: '', date: '', window: null, booked: null, accepted: false, body_auto: true, log: [] };
+      runs: 'unknown', rims: 'unknown', cat: 'unknown', keys: '', drop_off: false,
+      lost_reason: '', notes: '', channel: '', date: '', window: null, booked: null, accepted: false, body_auto: true, log: [] };
   }
 
   function torontoDate(offsetDays) {
@@ -390,7 +380,8 @@
     var el = e.target;
     if (!el.name || !(el.name in S)) return;
     S[el.name] = el.value;
-    if (el.name === 'phone') sheet.querySelectorAll('[name="phone"]').forEach(function(p) { if (p !== el) p.value = el.value; });
+    // Phone and Notes each appear twice on the page; keep the copies in step.
+    sheet.querySelectorAll('[name="' + el.name + '"]').forEach(function(p) { if (p !== el) p.value = el.value; });
     touched();
     if (['year', 'make', 'model', 'city'].indexOf(el.name) >= 0) schedulePrice();
     if (el.name === 'year' || el.name === 'make') scheduleModels();
@@ -450,9 +441,9 @@
       var li = document.createElement('li');
       var b = document.createElement('button');
       b.type = 'button';
-      if (l.stage === 'Offer accepted') li.className = 'accepted';
+      if (l.accepted) li.className = 'accepted';
       var title = document.createElement('b'); title.textContent = l.lead || [l.year, l.make, l.model].join(' ') || 'Lead';
-      var stage = document.createElement('em'); stage.className = 'stage'; stage.textContent = l.stage + (l.saved_offer ? ', $' + l.saved_offer : '');
+      var stage = document.createElement('em'); stage.className = 'stage'; stage.textContent = (l.accepted ? 'Accepted online' : l.stage) + (l.saved_offer ? ', $' + l.saved_offer : '');
       var who = document.createElement('em'); who.textContent = [l.name || 'No name', l.phone || 'no phone'].join(' · ');
       var when = document.createElement('em'); when.textContent = l.created ? ago(l.created) : '';
       b.append(title, stage, who, when);
@@ -574,31 +565,22 @@
     S.window = null;
     touched();
     render();
-    if (slots[date]) return;
-    api('GET', '?slots=' + date).then(function(d) { slots[date] = d; render(); })
-      .catch(function(err) { slots[date] = { error: err.message, windows: [8, 10, 12, 14, 16, 18] }; render(); });
   }
 
+  // Google Calendar is the record of what's booked; this page can't see it.
   function renderWindows() {
     var box = $('windows');
     box.textContent = '';
-    var info = slots[S.date];
-    $('calNote').textContent = !S.date ? 'Pick a day first.'
-      : !info ? 'Checking what is booked...'
-        : info.error ? 'Could not check bookings (' + info.error + '). You can still book.'
-          : info.configured === false ? 'Airtable is not connected, so taken windows are not shown.' : '';
+    $('calNote').textContent = !S.date ? 'Pick a day first.' : 'Check Google Calendar for times already taken.';
     if (!S.date) return;
     var hourNow = S.date === torontoDate(0) ? torontoHour() : -1;
-    (info && info.windows || [8, 10, 12, 14, 16, 18]).forEach(function(start) {
-      var taken = info && info.booked && info.booked[start] || [];
+    WINDOWS.forEach(function(start) {
       var b = document.createElement('button');
       b.type = 'button';
-      b.disabled = start + 2 <= hourNow;
-      if (taken.length) b.className = 'busy';
+      b.disabled = start + 1 <= hourNow;
       b.setAttribute('aria-pressed', String(S.window === start));
-      var t = document.createElement('span'); t.textContent = hourLabel(start) + ' to ' + hourLabel(start + 2);
-      var s = document.createElement('small'); s.textContent = taken.length ? taken.length + ' booked: ' + taken.join('; ') : 'Free';
-      b.append(t, s);
+      var t = document.createElement('span'); t.textContent = hourLabel(start) + ' to ' + hourLabel(start + 1);
+      b.append(t);
       b.addEventListener('click', function() { S.window = start; touched(); render(); });
       box.appendChild(b);
     });
@@ -625,7 +607,7 @@
     api('POST', '', body).then(function(d) {
       if (d.id) { S.id = d.id; S.url = d.url; }
       if (d.stage) S.stage = d.stage;
-      if (d.price) S.saved_offer = S.agreed || d.price.low;
+      if (d.price) S.saved_offer = d.price.low;
       var what = outcome === 'booked' ? 'Booked ' + (d.booked && d.booked.label)
         : outcome === 'lost' ? 'Saved as lost' : outcome === 'offer' ? 'Offer saved' : 'Saved';
       logLine(what + (d.saved ? ' to Airtable (' + (S.stage || 'saved') + ').' : '.'), !d.saved, d.booked && d.booked.link);
@@ -671,10 +653,9 @@
       case 'caller': return !!(S.name && digits10(S.phone));
       case 'car': return !!(S.year && S.make && S.model);
       case 'condition': return S.runs !== 'unknown' && S.rims !== 'unknown' && S.cat !== 'unknown' && !!S.keys;
-      case 'ownership': return S.ownership === 'yes' || S.ownership === 'owner';
       case 'location': return S.drop_off || !!(S.address && S.city);
-      case 'offer': return !!price && (!!S.accepted || ['Offer accepted', 'Appointment Scheduled', 'Picked up'].indexOf(S.stage) >= 0);
-      case 'book': return !!S.booked || S.stage === 'Appointment Scheduled';
+      case 'offer': return !!price && (!!S.accepted || BOOKED.indexOf(S.stage) >= 0);
+      case 'book': return !!S.booked || BOOKED.indexOf(S.stage) >= 0;
       case 'close': return false;
     }
     return false;
@@ -685,7 +666,7 @@
     current = (STEPS.filter(function(s) { return !done(s.id); })[0] || STEPS[STEPS.length - 1]).id;
     STEPS.forEach(function(s, i) {
       var sec = $('s-' + s.id);
-      var stop = (s.id === 'ownership' && S.ownership === 'no') || (s.id === 'offer' && S.stage === 'Lost');
+      var stop = s.id === 'offer' && S.stage === 'Lost';
       sec.classList.toggle('done', done(s.id));
       sec.classList.toggle('current', current === s.id);
       sec.classList.toggle('stop', stop);
@@ -714,7 +695,6 @@
         b.setAttribute('aria-pressed', String(name === 'body_type' ? (S.body_auto || !S.body_type ? bv === '' : bv === v) : bv === v));
       });
     });
-    $('noOwnership').classList.toggle('hidden', S.ownership !== 'no');
 
     // Offer
     var range = price ? price.text : '';
@@ -725,16 +705,15 @@
     $('barOffer').textContent = price ? range : 'No price yet';
     sheet.querySelectorAll('[data-fill="range"]').forEach(function(el) { el.textContent = price ? range : 'a range'; });
     $('offerNote').textContent = price && price.assumed.length ? 'Priced as ' + price.assumed.join(', ') + '. Ask to firm it up.' : '';
-    $('panelSaved').textContent = S.saved_offer ? 'In Airtable: $' + S.saved_offer + (S.range ? ' (' + S.range + ')' : '') : '';
+    $('panelSaved').textContent = S.saved_offer ? 'In Airtable: $' + S.saved_offer : '';
 
     // Facts
     var facts = [
       ['Name', S.name], ['Phone', S.phone], ['Email', S.email],
       ['Car', [carName(), S.km ? Number(S.km).toLocaleString('en-CA') + ' km' : ''].filter(Boolean).join(', ')],
       ['Condition', [S.runs === 'yes' ? 'runs' : S.runs === 'no' ? "doesn't run" : '', S.rims !== 'unknown' ? S.rims + ' rims' : '', S.cat !== 'unknown' ? 'cat ' + S.cat : '', S.keys ? 'keys ' + S.keys : ''].filter(Boolean).join(', ')],
-      ['Ownership', { yes: 'in their name', owner: 'owner will be there', no: 'none' }[S.ownership] || ''],
       ['Where', S.drop_off ? 'Drop-off at the yard' : [S.address, S.city].filter(Boolean).join(', ')],
-      ['Pickup', S.booked ? S.booked.label : S.pickup]
+      ['Pickup', S.booked ? S.booked.label : '']
     ];
     var dl = $('facts');
     dl.textContent = '';
@@ -754,7 +733,6 @@
     var todo = [
       ['Phone', !!digits10(S.phone)], ['Year, make, model', !!(S.year && S.make && S.model)],
       [S.drop_off ? 'Drop-off (no address needed)' : 'Exact address', S.drop_off || !!S.address],
-      ['Ownership', S.ownership === 'yes' || S.ownership === 'owner'],
       ['Day and window', !!(S.date && S.window != null)],
       ['Email for the invite (optional)', !!S.email]
     ];
@@ -819,7 +797,7 @@
   // ── New call and the timer ──
   var confirmNew = false;
   function newCall() {
-    S = blank(); price = null; started = null; lastLookup = ''; slots = {};
+    S = blank(); price = null; started = null; lastLookup = '';
     clearDraft();
     fillInputs();
     $('phoneMatch').classList.add('hidden');

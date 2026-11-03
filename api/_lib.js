@@ -173,17 +173,25 @@ const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'appEOUr8ngofFtQ6U';
 const AIRTABLE_LEADS_TABLE_ID = process.env.AIRTABLE_LEADS_TABLE_ID || 'tbluxWwt1dVjCJGC3';
 const AIRTABLE_LEAD_FIELDS = {
   lead: 'Lead', contactName: 'Contact Name', phone: 'Phone', email: 'Email',
-  year: 'Vehicle Year', make: 'Vehicle Make', model: 'Vehicle Model', vehicleType: 'Vehicle Type',
+  year: 'Vehicle Year', make: 'Vehicle Make', model: 'Vehicle Model',
   km: 'Odometer (km)', location: 'Location', runsDrives: 'Runs / Drives',
   cat: 'Original Catalytic Converter', alloys: 'Alloy Wheels', photos: 'Photo URLs',
-  stage: 'Pipeline Stage', offer: 'Offer Amount (CAD)', priceRange: 'Steve Price Range (CAD)',
-  confidence: 'Pricing Confidence', followupsSent: 'Follow-up Emails Sent', followupsStopped: 'Follow-ups Stopped',
+  stage: 'Pipeline Stage', offer: 'Offer Amount (CAD)',
+  followupsSent: 'Follow-up Emails Sent', followupsStopped: 'Follow-ups Stopped',
   lostReason: 'Lost Reason', source: 'Intake Source',
   // Where the lead came from (track.js on the site, or the call sheet's question).
-  channel: 'Channel', firstChannel: 'First Channel', referrer: 'Referrer',
-  // Written by the call sheet (/call).
-  address: 'Pickup Address', pickupDate: 'Pickup Date', pickupWindow: 'Pickup Window', notes: 'Call Notes',
+  channel: 'Channel',
+  // Written by the call sheet (/call). The pickup time lives on Google Calendar.
+  address: 'Pickup Address', notes: 'Call Notes',
 };
+
+// Pipeline Stage. Every lead starts at "New lead" (website quote or phone call,
+// whether or not they accept the offer), then "Appointment Scheduled" once a
+// pickup is booked, "Picked up" once we have the car and "Closed" once it's
+// sold. "Lost" can happen at any point.
+const STAGE = { lead: 'New lead', booked: 'Appointment Scheduled', pickedUp: 'Picked up', closed: 'Closed', lost: 'Lost' };
+// The line the website's accept button adds to Call Notes.
+const ACCEPTED_NOTE = 'Accepted the offer on the website';
 
 const leadUrl = (id) => `https://airtable.com/${AIRTABLE_BASE_ID}/${AIRTABLE_LEADS_TABLE_ID}/${id}`;
 
@@ -260,16 +268,22 @@ async function updateAirtableLead(id, fields) {
   return record.fields || {};
 }
 
-// Only transition an offer once. This lets the Airtable P&L automation create
-// one financial row per accepted lead even when a customer replays the link.
+// The website's accept button. The lead stays a "New lead" until someone books
+// the pickup; accepting adds a dated line to Call Notes (so Airtable and the
+// call sheet show it) and stops the follow-up emails. Returns null when it's
+// not an open lead or was already accepted, so a replayed link alerts once.
 async function acceptAirtableLead(id) {
   const encoded = encodeURIComponent(id);
   const record = await airtable(`/${AIRTABLE_LEADS_TABLE_ID}/${encoded}`);
-  const stage = record.fields && record.fields[AIRTABLE_LEAD_FIELDS.stage];
-  if (stage === 'Offer accepted') return null;
-  if (stage !== 'Offer sent') return null;
-  await updateAirtableLead(encoded, { [AIRTABLE_LEAD_FIELDS.stage]: 'Offer accepted' });
-  return record.fields || {};
+  const f = record.fields || {};
+  const notes = String(f[AIRTABLE_LEAD_FIELDS.notes] || '');
+  if (f[AIRTABLE_LEAD_FIELDS.stage] !== STAGE.lead || notes.includes(ACCEPTED_NOTE)) return null;
+  const day = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto', month: 'short', day: 'numeric' });
+  await updateAirtableLead(encoded, {
+    [AIRTABLE_LEAD_FIELDS.notes]: [notes, `${ACCEPTED_NOTE} (${day}).`].filter(Boolean).join('\n'),
+    [AIRTABLE_LEAD_FIELDS.followupsStopped]: true,
+  });
+  return f;
 }
 
 // ── Beeper (Matrix) alerts, same room setup as carca.sh ───────────────────
@@ -431,6 +445,7 @@ async function notify(lines, options) {
 module.exports = {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled,
   airtable, writeAirtableLead, createAirtableLead, listAirtableRecords, listAirtableLeads, updateAirtableLead, acceptAirtableLead, AIRTABLE_LEAD_FIELDS,
+  STAGE, ACCEPTED_NOTE,
   AIRTABLE_LEADS_TABLE_ID, leadUrl,
   notify, notifyBeeper,
   emailConfigured, resendConfigured, domainAddress, sendEmail, alertEmails, capture,

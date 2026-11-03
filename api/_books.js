@@ -6,7 +6,7 @@
 // a folder name derived from CRON_SECRET that nobody can guess.
 const crypto = require('crypto');
 const { list, put, del } = require('@vercel/blob');
-const { airtable, listAirtableLeads, listAirtableRecords, AIRTABLE_LEAD_FIELDS, AIRTABLE_LEADS_TABLE_ID, leadUrl } = require('./_lib');
+const { airtable, listAirtableLeads, listAirtableRecords, AIRTABLE_LEAD_FIELDS, AIRTABLE_LEADS_TABLE_ID, leadUrl, STAGE } = require('./_lib');
 
 const CATEGORIES = ['Gas', 'Tow', 'Google Ads', 'Other ads', 'Insurance', 'Phone', 'Tools and parts', 'Other'];
 const ADS_CHANNEL = 'google_ads';
@@ -106,16 +106,18 @@ async function adSpendDays(month) {
 
 // ── Airtable closed-lead P&L ──
 // A P&L row holds the money for one deal; its lead says where the deal stands.
-// Each deal is judged by the lead's current (most final) stage: Lost drops out,
-// "Picked up" (or a sale price entered) counts in the month it was picked up,
-// and anything accepted or booked waits under "upcoming". Rows match their lead
-// by name (Closed Lead is a copy of the lead's Lead field).
+// Each deal is judged by the lead's current stage: "Closed" (sold, or a sale
+// price entered) counts, "Appointment Scheduled" and "Picked up" wait under
+// "upcoming", and anything else (Lost, or back to a New lead) drops out. Pickup
+// times are only on Google Calendar, so a deal is dated by when its P&L row was
+// made (the day after it was booked). Rows match their lead by name (Closed
+// Lead is a copy of the lead's Lead field).
 const PNL = {
   lead: 'Closed Lead', stage: 'Closed Stage', purchase: 'Purchase Offer (CAD)', acquisition: 'Acquisition Costs (CAD)',
   revenue: 'Revenue (CAD)', status: 'P&L Status', notes: 'Notes',
 };
 const L = AIRTABLE_LEAD_FIELDS;
-const CLOSING = ['Offer accepted', 'Appointment Scheduled', 'Picked up'];
+const CLOSING = [STAGE.booked, STAGE.pickedUp, STAGE.closed];
 
 const number = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 const has = (value) => value != null && value !== '';
@@ -128,10 +130,8 @@ async function closedRecords() {
   return listAirtableRecords(AIRTABLE_PNL_TABLE_ID);
 }
 
-// Every lead at "Offer accepted" or later gets a P&L row (the Airtable
-// automation only adds one when a lead passes through "Offer accepted", so
-// imported or hand-moved leads can miss it), and each row's Closed Stage
-// follows its lead. Returns what changed.
+// Every lead that's booked, picked up or closed gets a P&L row, and each row's
+// Closed Stage follows its lead. Returns what changed.
 async function reconcile() {
   const [rows, leads] = await Promise.all([closedRecords(), listAirtableLeads()]);
   const byName = new Map(rows.map((r) => [String(r.fields[PNL.lead] || ''), r]));
@@ -157,8 +157,8 @@ async function reconcile() {
   return { created, updated };
 }
 
-// One entry per deal: P&L rows joined to their lead, plus accepted, booked or
-// picked-up leads that have no row yet (reconcile adds one at the next run).
+// One entry per deal: P&L rows joined to their lead, plus booked, picked-up or
+// closed leads that have no row yet (reconcile adds one at the next run).
 function deals(rows, leads) {
   const byName = new Map(leads.map((l) => [String((l.fields || {})[L.lead] || ''), l]));
   const out = rows.map((r) => {
@@ -168,7 +168,7 @@ function deals(rows, leads) {
     byName.delete(String(q[PNL.lead] || ''));
     return {
       id: r.id, url: rowUrl(r.id), name: q[PNL.lead] || r.id, stage: f[L.stage] || q[PNL.stage] || '',
-      date: f[L.pickupDate] || torontoDate(r.createdTime), channel: channelOf(f),
+      date: torontoDate(r.createdTime), channel: channelOf(f),
       revenue: q[PNL.revenue], purchase: has(q[PNL.purchase]) ? q[PNL.purchase] : f[L.offer], acquisition: q[PNL.acquisition], hasRow: true,
     };
   });
@@ -176,30 +176,25 @@ function deals(rows, leads) {
     const f = lead.fields || {};
     if (!CLOSING.includes(f[L.stage]) || !name || /\btest\b/i.test(name)) return;
     out.push({
-      id: lead.id, url: leadUrl(lead.id), name, stage: f[L.stage], date: f[L.pickupDate] || torontoDate(lead.createdTime), channel: channelOf(f),
+      id: lead.id, url: leadUrl(lead.id), name, stage: f[L.stage], date: torontoDate(Date.now()), channel: channelOf(f),
       revenue: null, purchase: f[L.offer], acquisition: null, hasRow: false,
     });
   });
   return out.map((d) => ({
     ...d,
-    counted: d.stage !== 'Lost' && (d.stage === 'Picked up' || has(d.revenue)),
-    upcoming: d.stage !== 'Lost' && d.stage !== 'Picked up' && !has(d.revenue),
+    counted: d.stage !== STAGE.lost && (d.stage === STAGE.closed || has(d.revenue)),
+    upcoming: (d.stage === STAGE.booked || d.stage === STAGE.pickedUp) && !has(d.revenue),
   }));
 }
 
-// What needs a hand in Airtable: picked-up deals without both prices, and
-// bookings whose pickup day has passed but aren't marked "Picked up".
-function dealIssues(all, today = torontoDate(Date.now())) {
-  const missing = all
+// What needs a hand in Airtable: closed deals without both prices.
+function dealIssues(all) {
+  return all
     .filter((d) => d.counted && (!has(d.revenue) || !has(d.purchase)))
     .map((d) => ({
       id: d.id, url: d.url, name: d.name, date: d.date,
       missing: d.hasRow ? [!has(d.revenue) && PNL.revenue, !has(d.purchase) && PNL.purchase].filter(Boolean) : ['a Closed Leads P&L row'],
     }));
-  const overdue = all
-    .filter((d) => d.upcoming && d.stage === 'Appointment Scheduled' && d.date < today)
-    .map((d) => ({ id: d.id, url: d.url, name: d.name, date: d.date, missing: ['its lead moved to "Picked up" (or "Lost"): pickup day has passed'] }));
-  return [...missing, ...overdue];
 }
 
 async function issues() {
@@ -230,7 +225,7 @@ async function pnl(month) {
 
   const leads = created.filter((r) => torontoDate(r.createdTime).startsWith(month) && !/\btest\b/i.test(String(r.fields[L.lead] || '')));
   const lost = {};
-  leads.forEach((r) => { if (r.fields[L.stage] === 'Lost') { const k = r.fields[L.lostReason] || 'no reason'; lost[k] = (lost[k] || 0) + 1; } });
+  leads.forEach((r) => { if (r.fields[L.stage] === STAGE.lost) { const k = r.fields[L.lostReason] || 'no reason'; lost[k] = (lost[k] || 0) + 1; } });
 
   // Google Ads spend: the script's daily numbers when there are any, else
   // whatever was entered by hand under "Google Ads". Never both.

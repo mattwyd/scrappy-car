@@ -35,7 +35,7 @@ module.exports = async (req, res) => {
     deal = await acceptAirtableLead(id);
   } catch (err) {
     console.error('accept failed', err && err.message, id);
-    await alert([byRef, '', `Airtable lead not moved to "Offer accepted" (${String(err && err.message).slice(0, 120)}).`], id);
+    await alert([byRef, '', `Airtable lead not marked accepted (${String(err && err.message).slice(0, 120)}). Follow-up emails may still go out.`], id);
     return res.status(200).json({ ok: true });
   }
 

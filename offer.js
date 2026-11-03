@@ -629,7 +629,7 @@
     if (step === '3') {
       if (!picked.running) return fail('Let us know if it starts and drives.', 'running');
       if (!picked.condition) return fail('Pick the overall condition.', 'condition');
-      if (!picked.keys) return fail('Let us know about keys and ownership.', 'keys');
+      if (!picked.keys) return fail('Let us know if you have the keys.', 'keys');
     }
     return true;
   }

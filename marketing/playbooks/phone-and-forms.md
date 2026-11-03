@@ -66,7 +66,7 @@ carca.sh already has a working, hardened flow. Reuse it; don't rebuild.
 
 What exists in `mattwyd/carca-sh`:
 
-- `index.html` 3-step form: vehicle (year stepper, make, model from NHTSA vPIC, km slider) → condition (runs?, rust, keys and ownership, photos) → contact (town, email, mobile, notes). Honeypot field.
+- `index.html` 3-step form: vehicle (year stepper, make, model from NHTSA vPIC, km slider) → condition (runs?, rust, keys, photos) → contact (town, email, mobile, notes). Honeypot field.
 - `api/vehicles.js`: make list plus models by year from NHTSA vPIC (free, no key), classifies car vs truck.
 - `api/quote.js`: server-side price ladder (`priceFor`), validation, per-IP throttle, inserts into Supabase `carcash_leads`.
 - `api/accept.js`: idempotent accept (guards against replay), Beeper notification.

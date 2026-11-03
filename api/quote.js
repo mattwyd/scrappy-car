@@ -1,6 +1,6 @@
 const {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled, createAirtableLead, notify,
-  AIRTABLE_LEAD_FIELDS,
+  AIRTABLE_LEAD_FIELDS, STAGE,
 } = require('./_lib');
 
 module.exports = async (req, res) => {
@@ -41,7 +41,6 @@ module.exports = async (req, res) => {
   // Attribution captured client-side by track.js (last touch wins for the lead).
   const attr = body.attribution && typeof body.attribution === 'object' ? body.attribution : {};
   const last = attr.last && typeof attr.last === 'object' ? attr.last : {};
-  const first = attr.first && typeof attr.first === 'object' ? attr.first : {};
   const channel = clean(last.channel, 40);
   // Which site sent them (chatgpt.com, perplexity.ai, google.com…). ChatGPT often
   // strips the referrer but tags links with utm_source, so fall back to that.
@@ -64,24 +63,18 @@ module.exports = async (req, res) => {
     [AIRTABLE_LEAD_FIELDS.year]: year,
     [AIRTABLE_LEAD_FIELDS.make]: make,
     [AIRTABLE_LEAD_FIELDS.model]: model,
-    [AIRTABLE_LEAD_FIELDS.vehicleType]: bodyType,
     [AIRTABLE_LEAD_FIELDS.runsDrives]: isRunning ? 'Yes' : 'No',
     [AIRTABLE_LEAD_FIELDS.cat]: 'Unknown',
     [AIRTABLE_LEAD_FIELDS.alloys]: 'Unknown',
     [AIRTABLE_LEAD_FIELDS.photos]: photos.join('\n'),
-    [AIRTABLE_LEAD_FIELDS.stage]: 'Offer sent',
+    [AIRTABLE_LEAD_FIELDS.stage]: STAGE.lead,
     [AIRTABLE_LEAD_FIELDS.offer]: offer,
-    [AIRTABLE_LEAD_FIELDS.priceRange]: offerText(offer, offerHigh),
-    [AIRTABLE_LEAD_FIELDS.confidence]: 'Low',
     [AIRTABLE_LEAD_FIELDS.source]: 'Website',
   };
   if (email) fields[AIRTABLE_LEAD_FIELDS.email] = email;
   if (km != null) fields[AIRTABLE_LEAD_FIELDS.km] = km;
   if (city) fields[AIRTABLE_LEAD_FIELDS.location] = city;
   if (channel) fields[AIRTABLE_LEAD_FIELDS.channel] = channel;
-  if (clean(first.channel, 40)) fields[AIRTABLE_LEAD_FIELDS.firstChannel] = clean(first.channel, 40);
-  const via = [referrer, clean(last.utm_campaign, 100)].filter(Boolean).join(' / ');
-  if (via) fields[AIRTABLE_LEAD_FIELDS.referrer] = via;
 
   let id = null;
   let crmNote = null;

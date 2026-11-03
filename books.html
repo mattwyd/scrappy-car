@@ -58,7 +58,7 @@
   <div class="kpis" id="kpis"></div>
   <section class="warn" id="missingBox" hidden>
     <h2>Needs a hand in Airtable</h2>
-    <p class="muted">Deals count by their lead's stage: "Picked up" counts, "Lost" drops out. Fill in "Revenue (CAD)" and "Purchase Offer (CAD)" in Closed Leads P&amp;L, or a pickup counts as $0.</p>
+    <p class="muted">Deals count by their lead's stage: "Closed" counts, "Lost" drops out. Fill in "Revenue (CAD)" and "Purchase Offer (CAD)" in Closed Leads P&amp;L, or a closed deal counts as $0.</p>
     <ul id="missingList" style="margin:.5rem 0 0 1.1rem"></ul>
   </section>
   <section>
@@ -71,7 +71,7 @@
   </section>
   <section>
     <h2>Upcoming</h2>
-    <p class="muted" style="margin-bottom:.5rem">Accepted or booked, not picked up yet. Not in the numbers above.</p>
+    <p class="muted" style="margin-bottom:.5rem">Booked or picked up, not sold (Closed) yet. Not in the numbers above.</p>
     <div class="scroll"><table id="upcomingTable"></table></div>
   </section>
   <section>
@@ -176,12 +176,12 @@
       d.pickups.map(function (p) {
         return row([p.date, { node: p.url ? el('a', { href: p.url, target: '_blank', rel: 'noopener', text: p.name }) : document.createTextNode(p.name) }, p.channel,
           { text: money(p.sold), num: true }, { text: money(p.paid), num: true }, { text: money(p.job), num: true }, { text: money(p.profit), num: true, neg: p.profit < 0 }]);
-      }), 'No pickups marked Picked up this month yet.');
+      }), 'No deals marked Closed this month yet.');
 
     fill($('upcomingTable'), ['Date', 'Car', 'Stage', { text: 'Paying', num: true }],
       (d.upcoming || []).map(function (u) {
         return row([u.date, { node: u.url ? el('a', { href: u.url, target: '_blank', rel: 'noopener', text: u.name }) : document.createTextNode(u.name) }, u.stage, { text: money(u.paid), num: true }]);
-      }), 'Nothing accepted or booked right now.');
+      }), 'Nothing booked or waiting to sell right now.');
 
     fill($('channelTable'), ['Channel', { text: 'Leads', num: true }, { text: 'Pickups', num: true }, { text: 'Profit', num: true }, { text: 'Ad spend', num: true }, { text: 'Per pickup', num: true }, { text: 'After ads', num: true }],
       Object.keys(d.channels).sort(function (a, b) { return d.channels[b].leads - d.channels[a].leads; }).map(function (c) {

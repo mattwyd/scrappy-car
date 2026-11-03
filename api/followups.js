@@ -1,12 +1,13 @@
 const {
-  listAirtableLeads, updateAirtableLead, AIRTABLE_LEAD_FIELDS,
+  listAirtableLeads, updateAirtableLead, AIRTABLE_LEAD_FIELDS, STAGE, priceFor, bodyTypeFor,
   resendConfigured, domainAddress, sendEmail, alertEmails, notify, capture,
 } = require('./_lib');
 const { MAX_DAYS, SCHEDULE, daysSince, dueStep, unsubscribeUrl, renderEmail } = require('./_followups');
 
-// Daily cron (vercel.json): emails people whose Airtable lead is still at "Offer sent"
-// on day 1, 5 and 21 after their offer. Anything that moves the deal on
-// (accepted, booked, lost) or the unsubscribe link stops the emails.
+// Daily cron (vercel.json): emails people whose Airtable lead is still a "New lead"
+// with an offer on day 1, 5 and 21 after their offer. Booking or losing the
+// lead, accepting on the website (Follow-ups Stopped) or the unsubscribe link
+// stops the emails.
 //
 // Sent from the domain through Resend, never the Gmail account. Nothing is sent
 // unless FOLLOWUPS_LIVE=1 and Resend is set up. Otherwise, and with ?dry=1, it
@@ -20,7 +21,7 @@ function plan(records, now) {
   const byEmail = new Map();
   records.forEach((record) => {
     const f = record.fields || {};
-    if (f[AIRTABLE_LEAD_FIELDS.stage] !== 'Offer sent') return;
+    if (f[AIRTABLE_LEAD_FIELDS.stage] !== STAGE.lead || !(Number(f[AIRTABLE_LEAD_FIELDS.offer]) > 0)) return;
     const email = String(f[AIRTABLE_LEAD_FIELDS.email] || '').trim().toLowerCase();
     if (!email) return;
     if (!byEmail.has(email)) byEmail.set(email, []);
@@ -51,10 +52,17 @@ async function setSent(leadId, n) {
   await updateAirtableLead(leadId, { [AIRTABLE_LEAD_FIELDS.followupsSent]: n });
 }
 
-function offerHigh(range, low) {
-  const amounts = String(range || '').match(/[\d,.]+/g) || [];
-  const last = Number(amounts[amounts.length - 1] && amounts[amounts.length - 1].replace(/,/g, ''));
-  return Number.isFinite(last) ? last : low;
+// Airtable keeps only the low end of the offer, so the top of the range is
+// priced again from the car on the lead (never below the saved low end).
+function offerHigh(p, low) {
+  const F = AIRTABLE_LEAD_FIELDS;
+  const year = Number(p[F.year]);
+  if (!year || !p[F.make] || !p[F.model]) return low;
+  const { high } = priceFor({
+    year, make: p[F.make], model: p[F.model], bodyType: bodyTypeFor(p[F.model], ''),
+    isRunning: p[F.runsDrives] === 'Yes', city: p[F.location],
+  });
+  return Math.max(low, Number(high) || low);
 }
 
 module.exports = async (req, res) => {
@@ -71,7 +79,7 @@ module.exports = async (req, res) => {
   for (const f of due) {
     const p = f.lead.fields || {};
     const low = Number(p[AIRTABLE_LEAD_FIELDS.offer]) || 0;
-    const high = offerHigh(p[AIRTABLE_LEAD_FIELDS.priceRange], low);
+    const high = offerHigh(p, low);
     const mail = renderEmail({
       step: f.step, dealId: f.lead.id, firstName: f.name,
       year: p[AIRTABLE_LEAD_FIELDS.year], make: p[AIRTABLE_LEAD_FIELDS.make], model: p[AIRTABLE_LEAD_FIELDS.model],
