@@ -305,7 +305,14 @@
 
 <script>
 (function() {
+  // The private link carries the key in the hash; remember it on this device so
+  // a bookmark of plain /call keeps working.
+  var KEY_STORE = 'scrappy-call-key';
   var key = new URLSearchParams(location.hash.slice(1)).get('k');
+  try {
+    if (key) localStorage.setItem(KEY_STORE, key);
+    else key = localStorage.getItem(KEY_STORE);
+  } catch (e) {}
   var DRAFT = 'scrappy-call-draft';
   var TOWNS = ['Scarborough','Port Union','West Rouge','Rouge Hill','Highland Creek','Malvern','Agincourt','Guildwood','Morningside','Birch Cliff','Cliffside','Wexford','Steeles',"L'Amoreaux",'East York','Leaside','The Beaches','Danforth','East Toronto','North York','Don Mills','Toronto','Pickering','Ajax','Whitby','Oshawa','Courtice','Bowmanville','Clarington','Uxbridge','Markham','Unionville','Stouffville','Richmond Hill','Vaughan','Thornhill'];
   var STEPS = [
