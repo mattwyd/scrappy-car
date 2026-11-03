@@ -6,20 +6,20 @@ Current state as of Oct 28, 2026. The older build plan is in `marketing/runbooks
 
 1. **Yelp, Facebook page, YellowPages.ca, 411.ca** with the same details, then add their URLs to the schema `sameAs` in `index.html` and the three `junk-cars/` pages that carry the business schema.
 2. **Apple Business** (on hold, Oct 28): organization "Scrappy Car Ltd" exists on Matt's existing Apple Account (brand and location features only). Verification needs two methods and Matt can't verify the business yet. Domain Validation is half done: the `apple-domain-verification` TXT record is live at the scrappycar.ca root in Cloudflare (keep it), it just needs Verify clicked. The second method is a document upload (Certificate of Incorporation, business registration, utility bill or lease) in the name "Scrappy Car Ltd". After that, add the location with exactly the Google profile details: "Scrappy Car - Junk Cars, Cars 4 Cash", 125 Island Rd, Scarborough, ON M1C 2P7, (647) 204-4200, open 24 hours, https://scrappycar.ca, auto wrecker.
-3. **HubSpot to Google Ads link** (parked Oct 28): Google Ads > Data manager > HubSpot > "Use direct connection" > Authorize failed with "Failed to authorize access", and no Google app got installed in HubSpot (portal mQinc is the right one). Worth little until the campaign bids on conversions: "Maximize clicks" ignores them, and Books already shows cost per pickup by channel. Retry when pickups reach about 15 a month and bidding moves to Maximize conversions. The site already sends hashed email and phone with the offer conversion (enhanced conversions for leads), so matching will work once it connects.
+3. **Offline conversions to Google Ads** (parked): send picked-up leads from Airtable to Google Ads as conversions (a scheduled upload with gclid or the hashed email and phone the site already sends). Worth little until the campaign bids on conversions: "Maximize clicks" ignores them, and Books already shows cost per pickup by channel. Build it when pickups reach about 15 a month and bidding moves to Maximize conversions.
 
 Open anything that needs a sign-in in Chrome (Claude in Chrome), not the built-in browser pane, where sign-ins don't stick. Matt does every sign-in, OAuth approval and account creation himself.
 
 ## Rules
 
 - **The Google Business Profile stays unchanged.** When the site and the profile disagree, the site changes to match (Matt, Oct 28). Ask before treating a profile value as wrong.
-- **HubSpot is optional.** Quotes, accepts and alerts never wait on or fail because of HubSpot.
+- **Airtable is optional.** Quotes, accepts, calls and alerts never wait on or fail because of Airtable or Google Calendar; whatever doesn't save goes in the alert email.
 - The repo is public: no customer data, yard name or keys in it.
 
 ## Running now
 
 - **Instant offer** shows a range: low = the flat ladder, high = the yard's likely price minus $100, always at least $50 apart (`api/_lib.js`).
-- **Follow-up emails** to leads still at "Offer sent", on day 1, 5 and 21, from hello@scrappycar.ca through Resend. Stops when the deal moves, on unsubscribe, bounce or spam complaint. Daily cron at 10am Toronto (`api/followups.js`, copy in `api/_followups.js`). Live since Oct 28: the first run sent 5 emails (three first emails, two second emails), all delivered. Turn off by removing `FOLLOWUPS_LIVE` in Vercel and redeploying; `?dry=1` with the cron secret shows who would get what.
+- **Follow-up emails** to leads still at "Offer sent", on day 1, 5 and 21, from hello@scrappycar.ca through Resend. Stops when the lead moves, on unsubscribe, bounce or spam complaint. Daily cron at 10am Toronto (`api/followups.js`, copy in `api/_followups.js`). Live since Oct 28: the first run sent 5 emails (three first emails, two second emails), all delivered. Turn off by removing `FOLLOWUPS_LIVE` in Vercel and redeploying; `?dry=1` with the cron secret shows who would get what.
 - **Lead alerts** by email from alerts@scrappycar.ca (Gmail as fallback) and Beeper.
 - **Google tag** (Ads and GA4) only reports from scrappycar.ca. On Vercel previews and localhost `gtag` is a no-op, so test quotes never count as conversions; PostHog tags those visits `env: preview` or `dev`. Don't accept the vercel.app "suggested domains" in the Google tag settings.
 - **Email domain**: scrappycar.ca verified in Resend (DKIM, SPF, bounce MX and a monitor-only DMARC in Cloudflare DNS). Cloudflare Email Routing forwards hello@ and matt@ to Matt's Gmail, seanq@ to Sean's.
@@ -27,13 +27,15 @@ Open anything that needs a sign-in in Chrome (Claude in Chrome), not the built-i
 - **Email stats** in PostHog: `followup_sent`, `followup_clicked`, `followup_delivered`, `followup_bounced`, `followup_complained`.
 - **Books (P&L)**: private page at `/books` (link with key in `scrappy-car-private/books-link.txt`). P&L email on the 1st, missing-price reminder on Mondays (`api/books-daily.js`).
 - **Google Ads spend** sent daily 5 to 6am by the "Scrappy Car books: daily ad spend" script in Google Ads.
-- **HubSpot**: deal page shows the "Scrappy Car deal" card; fields grouped into money, car, lead source, follow-ups; test deals marked Lost as "Test or duplicate".
+- **Google Ads negatives** (57 on the search-ad campaign): the keywords all target sellers, but phrase match lets Google treat "auto wreckers scarborough" as a close variant of "scrap car scarborough", and 6 of 7 clicks in the week to Oct 28 were people looking for parts. Oct 29 added broad negatives for wrecker searches (wrecker, wreckers, wreckage, autowreckers), yards (scrapyard, scrapyards, graveyard), self-serve yards (pick and pull, pick n pull, u pull, upull, you pull, kenny, self serve), recyclers and scrap metal (auto recyclers, auto recycling, metal, copper, aluminum) and competitor names (hollywood, greenlane, mountain auto, starks, bell city, acorn, auto heaven). Check the search terms report weekly and add new parts searches as negatives.
+- **Airtable** is the CRM: base "Lead & Pricing CRM". Leads in "CRM - Intake & Pricing" (the site, /call and follow-ups read and write it), closed deals in "Closed Leads P&L" (Books reads it; an Airtable automation adds a row when a lead reaches "Offer accepted"), plus Steve's pricing guide and quote history. Intake Source says where each lead came from (Website, Phone call).
+- **Call sheet** at `/call` (same private link key as `/books`): the page to have open on a call, laid out as a flowchart. Two starts: a website lead (pick from open leads or search by phone, updates that Airtable lead) or a new caller (enter their number, saves a new lead). Live offer range from the same pricing as the site, scripts and objection answers, exact pickup address, then books a 2-hour pickup window (8am to 8pm) on the "Scrappy Car pickups" Google Calendar and emails the customer an invite if they gave an email. New phone leads and bookings alert by email and Beeper (`api/call.js`, `api/_calendar.js`).
 - **Site** matches the Google profile: schema name "Scrappy Car - Junk Cars, Cars 4 Cash" (alternate "Scrappy Car"), open 24 hours, links to the profile and Instagram, city in the home H1, schema links to the Google listing, map shows the listing, address 125 Island Rd, M1C 2P7 everywhere (matches the Google profile), social card image, compressed truck photo, no em dashes. Submitted to Bing with IndexNow.
 
 ## Every pickup (Sean)
 
-- [ ] When a deal moves to **Picked up**, fill in "Sold to yard for", "Paid to customer" and, if any, "Job costs" on the deal. The P&L reads these.
-- [ ] When a deal is **Lost**, pick a "Lost reason".
+- [ ] When a lead moves to **Picked up**, fill in "Revenue (CAD)" (sold to yard), "Purchase Offer (CAD)" (paid to customer) and, if any, "Acquisition Costs (CAD)" on its row in "Closed Leads P&L". Books reads these.
+- [ ] When a lead is **Lost**, fill in "Lost Reason" (the call sheet does this for you).
 - [ ] Add other expenses (gas, insurance, phone) on the Books page.
 - [ ] Ask for a Google review with the profile's "Ask for reviews" link, and reply to new reviews.
 
@@ -46,10 +48,10 @@ Open anything that needs a sign-in in Chrome (Claude in Chrome), not the built-i
 - [x] **Bing Places**: imported from the Google Business Profile Oct 28 (signed in with Google) and verified. "Pending publish", Bing says 7 to 12 days. It stays synced with Google, so edit the Google profile, never Bing. Check it shows on Bing Maps by about Nov 10.
 - [ ] **Apple Business** (Apple Maps, Siri): on hold until there is a document to verify the business; see "Pick up here next".
 - [ ] **Yelp, Facebook page, YellowPages.ca, 411.ca**: same name, address and phone everywhere. Then add the profile URLs to the schema `sameAs` on the site.
-- [ ] **HubSpot to Google Ads link** (Data Manager): parked, see "Pick up here next".
 - [ ] **Google Ads second admin**: tag diagnostics asks for a second administrator so the account can't get locked out. Invite Sean (Admin > Access and security).
 - [ ] **Google Ads**: the ad says "Up to $4000 for Your Junk Car", but offers and yard quotes top out around $1,500. Change it or Google may call it misleading. Also widen the location targeting; spend is well under budget.
-- [ ] Optional: turn on CAD in HubSpot (the account only has USD, so amounts show as US dollars).
+- [ ] **Google Ads headline**: the ad has the maximum 15 headlines, one of them a broken "Junk Car Towing –". Replace it with "We Buy Cars Only. No Parts." so parts callers skip the ad (Ads > edit the ad > last headline > Save ad).
+- [ ] **Google profile parts calls**: parts calls also come from the profile, which is listed as an auto wrecker (4 parts calls on Oct 29 against 3 ad clicks). Negative keywords can't stop those. Option, needs Matt's yes since it edits the profile: add "We buy cars for cash. We don't sell used parts." to the description.
 
 ## Needs a decision
 
@@ -69,14 +71,10 @@ Open anything that needs a sign-in in Chrome (Claude in Chrome), not the built-i
 
 Run real experiments that make good interview examples: a clear hypothesis, a metric that ties to money, a control, and an honest result, including "no effect" and "not enough data". Volume is a few leads a week, so prefer metrics that happen often (form steps, offer views), long runs, or holdouts, and write down the minimum effect each run can detect before starting. PostHog (feature flags and experiments, free tier) is already on every page; Google Ads has a built-in Experiments tool. Keep a short write-up per experiment in `marketing/experiments/`: hypothesis, design, dates, sample size, result, decision.
 
-- [ ] **Follow-up email holdout**: hold back a random 20% of "Offer sent" deals from the day 1/5/21 emails and compare pickup rate within 28 days. Measures what the emails actually add, not just open rates (causal lift, not correlation).
+- [ ] **Follow-up email holdout**: hold back a random 20% of "Offer sent" leads from the day 1/5/21 emails and compare pickup rate within 28 days. Measures what the emails actually add, not just open rates (causal lift, not correlation).
 - [ ] **Offer range wording**: the offer always shows a range (Matt's rule), so test how it's presented, e.g. "$300 to $450" against "$300, up to $450 with rims and cat". Metric: offer accepted rate.
 - [ ] **Pricing model accuracy in production**: log the predicted yard price on every pickup next to what the yard actually paid. Track median error over time against the 99-quote backtest ($50 median error). An offline-to-online model evaluation story.
 - [ ] **Form friction**: make the photo step skippable up front, or move it after the offer, and measure step 2 completion and quotes per form start. Split results by iOS and Android.
 - [ ] **Ads bidding**: Google Ads campaign experiment, Maximize clicks against Maximize conversions (50/50 split), judged on cost per pickup from Books, not cost per click.
 - [ ] **AI search visibility**: before and after the scrap price guide page goes live, ask a fixed set of about 8 questions ("best junk car removal in Scarborough") in Gemini with search, ChatGPT and Perplexity, and count how often Scrappy Car is named. Content change as the treatment, citation rate as the metric.
 - [ ] **Speed to lead**: call back new quotes within 5 minutes against the usual delay (alternate by day), and compare pickup rate.
-
-## Can't do on free HubSpot
-
-- Required fields when a deal enters a stage. The Monday missing-price reminder covers it.

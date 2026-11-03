@@ -63,6 +63,7 @@ module.exports = async (req, res) => {
     [AIRTABLE_LEAD_FIELDS.offer]: offer,
     [AIRTABLE_LEAD_FIELDS.priceRange]: offerText(offer, offerHigh),
     [AIRTABLE_LEAD_FIELDS.confidence]: 'Low',
+    [AIRTABLE_LEAD_FIELDS.source]: 'Website',
   };
   if (email) fields[AIRTABLE_LEAD_FIELDS.email] = email;
   if (km != null) fields[AIRTABLE_LEAD_FIELDS.km] = km;

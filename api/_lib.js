@@ -178,7 +178,12 @@ const AIRTABLE_LEAD_FIELDS = {
   cat: 'Original Catalytic Converter', alloys: 'Alloy Wheels', photos: 'Photo URLs',
   stage: 'Pipeline Stage', offer: 'Offer Amount (CAD)', priceRange: 'Steve Price Range (CAD)',
   confidence: 'Pricing Confidence', followupsSent: 'Follow-up Emails Sent', followupsStopped: 'Follow-ups Stopped',
+  lostReason: 'Lost Reason', source: 'Intake Source',
+  // Written by the call sheet (/call).
+  address: 'Pickup Address', pickupDate: 'Pickup Date', pickupWindow: 'Pickup Window', notes: 'Call Notes',
 };
+
+const leadUrl = (id) => `https://airtable.com/${AIRTABLE_BASE_ID}/${AIRTABLE_LEADS_TABLE_ID}/${id}`;
 
 async function airtable(path, options = {}) {
   const token = process.env.AIRTABLE_TOKEN;
@@ -190,7 +195,11 @@ async function airtable(path, options = {}) {
   });
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new Error(`airtable ${options.method || 'GET'} ${path} ${res.status}: ${text.slice(0, 300)}`);
+  if (!res.ok) {
+    const err = new Error(`airtable ${options.method || 'GET'} ${path} ${res.status}: ${text.slice(0, 300)}`);
+    err.airtable = body && body.error; // { type, message }
+    throw err;
+  }
   return body;
 }
 
@@ -394,6 +403,7 @@ async function notify(lines, options) {
 module.exports = {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled,
   airtable, createAirtableLead, listAirtableRecords, listAirtableLeads, updateAirtableLead, acceptAirtableLead, AIRTABLE_LEAD_FIELDS,
+  AIRTABLE_LEADS_TABLE_ID, leadUrl,
   notify, notifyBeeper,
   emailConfigured, resendConfigured, domainAddress, sendEmail, alertEmails, capture,
 };

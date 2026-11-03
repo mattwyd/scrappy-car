@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Call sheet | Scrappy Car</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg:#0f0f0f; --bg2:#1a1a1a; --bg3:#242424; --border:#2e2e2e; --green:#39d353; --green-dim:rgba(57,211,83,.14); --amber:#e3b341; --amber-dim:rgba(227,179,65,.12); --red:#ff7b72; --text:#e8e8e8; --muted:#8a8a8a; --white:#fff; --radius:8px; }
+    html { scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; line-height: 1.45; }
+    a { color: var(--green); }
+    button, input, select, textarea { font: inherit; color: var(--text); background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .7rem; }
+    input, select, textarea { width: 100%; min-width: 0; }
+    textarea { resize: vertical; min-height: 5rem; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    button.primary { background: var(--green); color: #000; font-weight: 800; border: 0; }
+    button.warn { border-color: var(--amber); color: var(--amber); }
+    button.danger { border-color: var(--red); color: var(--red); }
+    button.ghost { background: none; }
+    :focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+    .top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .6rem 1rem; background: rgba(15,15,15,.95); border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); }
+    .logo { font-weight: 800; color: var(--white); text-decoration: none; margin-right: auto; }
+    .logo span { color: var(--green); }
+    .pill { font-size: .8rem; padding: .2rem .6rem; border-radius: 999px; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; max-width: 60vw; overflow: hidden; text-overflow: ellipsis; }
+    .pill.new { color: var(--green); border-color: var(--green); }
+    .timer { font-variant-numeric: tabular-nums; color: var(--muted); font-size: .9rem; }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1.5rem; max-width: 1680px; margin: 0 auto; padding: 1.25rem; align-items: start; }
+    .panel { position: sticky; top: 4.25rem; max-height: calc(100vh - 5rem); overflow-y: auto; }
+
+    /* The page is the flowchart: one box per step, three to a row, arrows drawn
+       between them (svg#wires), and the exits that end a call early hanging
+       off the box they come from. */
+    .chart { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3.25rem 3.5rem; align-items: start; padding: .5rem .25rem 1rem; background-image: radial-gradient(#232323 1px, transparent 1px); background-size: 18px 18px; border-radius: var(--radius); }
+    #wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 0; }
+    #wires path { fill: none; stroke: #3a3a3a; stroke-width: 2; }
+    #wires path.lit { stroke: var(--green); }
+    .chart > .error { grid-column: 1 / -1; }
+    main section.node { position: relative; z-index: 1; background: var(--bg2); border: 2px solid var(--border); border-radius: 12px; padding: .9rem 1rem 1rem; box-shadow: 0 8px 24px rgba(0,0,0,.35); transition: border-color .2s, box-shadow .2s; }
+    main section.node.done { border-color: #2f5a37; }
+    main section.node.current { border-color: var(--green); box-shadow: 0 0 0 4px var(--green-dim), 0 8px 24px rgba(0,0,0,.35); }
+    main section.node.stop { border-color: var(--red); }
+    h2 { font-size: 1.02rem; color: var(--white); margin-bottom: .55rem; display: flex; align-items: center; gap: .55rem; }
+    h2 small { color: var(--muted); font-weight: 400; font-size: .78rem; margin-left: auto; }
+    h2 .badge { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: .75rem; background: var(--bg3); border: 2px solid var(--border); color: var(--muted); }
+    .decision h2 .badge { border-radius: 4px; transform: rotate(45deg); width: 22px; height: 22px; margin: 0 3px; }
+    .decision h2 .badge b { transform: rotate(-45deg); font-weight: 700; }
+    .node.done h2 .badge { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+    .node.current h2 .badge { background: var(--green); border-color: var(--green); color: #000; }
+    .node.stop h2 .badge { border-color: var(--red); color: var(--red); }
+    .exits { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .9rem; padding-top: .7rem; border-top: 1px dashed var(--border); }
+    .exit { font-size: .76rem; padding: .2rem .65rem; border-radius: 999px; border: 1px dashed var(--amber); color: var(--amber); }
+    .exit.end { border-color: var(--red); color: var(--red); }
+    .exit::before { content: '\2192  '; }
+    .say { border-left: 3px solid var(--green); background: var(--green-dim); padding: .5rem .75rem; border-radius: 0 var(--radius) var(--radius) 0; margin: .5rem 0 .75rem; color: var(--white); }
+    .say::before { content: 'Say: '; color: var(--green); font-weight: 700; }
+    .if { border-left: 3px solid var(--amber); background: var(--amber-dim); padding: .5rem .75rem; border-radius: 0 var(--radius) var(--radius) 0; margin: .6rem 0; font-size: .92rem; }
+    .if strong { color: var(--amber); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem .75rem; }
+    .grid .wide { grid-column: 1 / -1; }
+    label { display: grid; gap: .2rem; font-size: .8rem; color: var(--muted); min-width: 0; }
+    .q { margin: .7rem 0 .25rem; font-size: .85rem; color: var(--muted); }
+    .q b { color: var(--text); font-weight: 600; }
+    .choice { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .choice button { padding: .4rem .8rem; }
+    .choice button[aria-pressed="true"] { background: var(--green); color: #000; border-color: var(--green); font-weight: 700; }
+    .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem; }
+    .muted { color: var(--muted); font-size: .88rem; }
+    .error { color: var(--red); }
+    .hidden { display: none !important; }
+
+    .start { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .start > button { text-align: left; padding: .9rem 1rem; display: grid; gap: .2rem; }
+    .start > button strong { color: var(--white); font-size: 1rem; }
+    .start > button span { color: var(--muted); font-size: .85rem; }
+    .start > button[aria-pressed="true"] { border-color: var(--green); background: var(--green-dim); }
+    .leads { list-style: none; margin-top: .6rem; display: grid; gap: .4rem; max-height: 340px; overflow-y: auto; }
+    .leads button { width: 100%; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: .1rem .75rem; padding: .55rem .75rem; }
+    .leads b { color: var(--white); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .leads em { font-style: normal; font-size: .78rem; color: var(--muted); }
+    .leads .accepted em.stage { color: var(--green); }
+    .match { margin-top: .6rem; padding: .6rem .75rem; border: 1px solid var(--amber); border-radius: var(--radius); background: var(--amber-dim); }
+
+    .offer-big { font-size: 2rem; font-weight: 800; color: var(--white); letter-spacing: -.01em; }
+    .offer-big.none { font-size: 1.1rem; color: var(--muted); font-weight: 600; }
+    .objections details { border-top: 1px solid var(--border); padding: .45rem 0; }
+    .objections summary { cursor: pointer; font-weight: 600; }
+    .objections p { margin: .4rem 0 .2rem; }
+    .days { display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .2rem; }
+    .days button { flex: none; }
+    .days button[aria-pressed="true"], .windows button[aria-pressed="true"] { background: var(--green); color: #000; border-color: var(--green); font-weight: 700; }
+    .windows { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .4rem; margin-top: .6rem; }
+    .windows button { display: grid; text-align: left; gap: .1rem; }
+    .windows small { font-size: .72rem; color: var(--muted); }
+    .windows button[aria-pressed="true"] small { color: #000; }
+    .windows button.busy small { color: var(--amber); }
+
+    .panel .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem 1rem; margin-bottom: .75rem; }
+    .panel h3 { font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .4rem; }
+    .facts { display: grid; grid-template-columns: auto 1fr; gap: .2rem .6rem; font-size: .88rem; }
+    .facts dt { color: var(--muted); }
+    .facts dd { color: var(--text); overflow-wrap: anywhere; }
+    .todo { list-style: none; font-size: .85rem; }
+    .todo li::before { content: '\25CB  '; color: var(--amber); }
+    .todo li.ok::before { content: '\2713  '; color: var(--green); }
+    .log { list-style: none; font-size: .85rem; display: grid; gap: .35rem; }
+    .log li.bad { color: var(--amber); }
+    .bar { display: none; }
+
+    /* Built for a computer screen; smaller screens get the same boxes in fewer columns. */
+    @media (max-width: 1350px) { .chart { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: minmax(0, 1fr); padding: .75rem 1rem 6rem; }
+      .chart { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; }
+      .panel { position: static; max-height: none; }
+      .start { grid-template-columns: 1fr; }
+      .bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; gap: .6rem; align-items: center; padding: .6rem 1rem calc(.6rem + env(safe-area-inset-bottom)); background: rgba(15,15,15,.97); border-top: 1px solid var(--border); }
+      .bar strong { margin-right: auto; color: var(--white); font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="/">Scrappy<span>Car</span> call sheet</a>
+  <span class="timer" id="timer" title="Time on this call">0:00</span>
+  <span class="pill new" id="status">New caller</span>
+  <button type="button" id="newCall" class="ghost">New call</button>
+</header>
+
+<div class="layout">
+  <main id="sheet" class="chart">
+    <svg id="wires" aria-hidden="true"></svg>
+    <p class="error" id="pageError" hidden></p>
+
+    <section id="s-start" data-step="start" class="node decision">
+      <h2><span class="badge"><b>1</b></span>Who is calling? <small>pick one</small></h2>
+      <div class="start">
+        <button type="button" id="modeWeb" aria-pressed="false"><strong>Filled in the website form</strong><span>Calling them back, or they called about their offer. Updates their Airtable lead.</span></button>
+        <button type="button" id="modeNew" aria-pressed="false"><strong>New caller</strong><span>Called the number cold. Enter their number and go through the call. Saves a new lead.</span></button>
+      </div>
+
+      <div id="webPick" class="hidden">
+        <p class="say">Hi, it's Scrappy Car calling about the offer for your car. Is now a good time?</p>
+        <div class="grid" style="margin-top:.6rem">
+          <label class="wide">Search by phone number<input type="tel" id="findPhone" placeholder="416 555 1234" autocomplete="off"></label>
+        </div>
+        <p class="muted" id="leadsNote" style="margin-top:.6rem">Open leads from the last 3 weeks, accepted offers first.</p>
+        <ul class="leads" id="leadList"></ul>
+      </div>
+
+      <div id="newStart" class="hidden">
+        <p class="say">Scrappy Car, how can I help? Are you looking to sell a car?</p>
+        <div class="grid">
+          <label>Their phone number<input type="tel" name="phone" id="newPhone" placeholder="416 555 1234" autocomplete="off"></label>
+        </div>
+        <div id="phoneMatch" class="match hidden"></div>
+        <div class="if"><strong>Wants used parts?</strong> We only buy whole cars, we don't sell parts. Try a self-serve yard. Then end the call, nothing to save.</div>
+        <div class="if"><strong>Selling a car?</strong> Keep going: get their name next.</div>
+      </div>
+      <div class="exits"><span class="exit end">Wants parts: end call, nothing saved</span></div>
+    </section>
+
+    <section id="s-caller" data-step="caller" class="node">
+      <h2><span class="badge"><b>2</b></span>Caller</h2>
+      <p class="say">Great, who am I speaking with? And what's the best email to send the offer and the pickup time to?</p>
+      <div class="grid">
+        <label>Name<input name="name" autocomplete="off"></label>
+        <label>Phone<input type="tel" name="phone" autocomplete="off"></label>
+        <label class="wide">Email <span class="muted">(optional, gets the calendar invite and follow-ups)</span><input type="email" name="email" autocomplete="off"></label>
+      </div>
+    </section>
+
+    <section id="s-car" data-step="car" class="node">
+      <h2><span class="badge"><b>3</b></span>The car</h2>
+      <p class="say">What's the year, make and model? Roughly how many kilometres?</p>
+      <div class="grid">
+        <label>Year<input name="year" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+        <label>Make<input name="make" list="makes" autocomplete="off"></label>
+        <label>Model<input name="model" list="models" autocomplete="off"></label>
+        <label>Km<input name="km" inputmode="numeric" autocomplete="off"></label>
+      </div>
+      <p class="q">Body</p>
+      <div class="choice" data-name="body_type">
+        <button type="button" data-value="">Auto</button><button type="button" data-value="car">Car</button><button type="button" data-value="truck">Truck, SUV or van</button>
+      </div>
+      <datalist id="makes"></datalist>
+      <datalist id="models"></datalist>
+    </section>
+
+    <section id="s-condition" data-step="condition" class="node">
+      <h2><span class="badge"><b>4</b></span>Condition</h2>
+      <p class="q"><b>"Does it run and drive?"</b></p>
+      <div class="choice" data-name="runs"><button type="button" data-value="yes">Runs and drives</button><button type="button" data-value="no">Doesn't run</button><button type="button" data-value="unknown">Not sure</button></div>
+      <p class="q"><b>"Are the wheels the original alloy rims, or steel with hubcaps?"</b></p>
+      <div class="choice" data-name="rims"><button type="button" data-value="alloy">Alloy</button><button type="button" data-value="steel">Steel</button><button type="button" data-value="unknown">Not sure</button></div>
+      <p class="q"><b>"Has the exhaust or catalytic converter been replaced or cut off?"</b></p>
+      <div class="choice" data-name="cat"><button type="button" data-value="original">Original</button><button type="button" data-value="aftermarket">Replaced</button><button type="button" data-value="none">Missing</button><button type="button" data-value="unknown">Not sure</button></div>
+      <p class="q"><b>"Do you have the keys?"</b></p>
+      <div class="choice" data-name="keys"><button type="button" data-value="yes">Yes</button><button type="button" data-value="no">No</button></div>
+      <div class="if"><strong>Engine or transmission missing, or big parts pulled?</strong> Put it in the notes; the yard price drops.</div>
+    </section>
+
+    <section id="s-ownership" data-step="ownership" class="node decision">
+      <h2><span class="badge"><b>5</b></span>Ownership</h2>
+      <p class="say">Is the ownership in your name?</p>
+      <div class="choice" data-name="ownership"><button type="button" data-value="yes">Yes, in their name</button><button type="button" data-value="owner">Owner will be there</button><button type="button" data-value="no">No ownership</button></div>
+      <div class="if" id="noOwnership"><strong>No ownership?</strong> We need the ownership to buy the car. Can the registered owner be there at pickup, or can they get a replacement from ServiceOntario? If not, save it as lost: "No ownership".</div>
+      <div class="exits"><span class="exit end">No ownership: save as lost</span></div>
+    </section>
+
+    <section id="s-location" data-step="location" class="node">
+      <h2><span class="badge"><b>6</b></span>Address</h2>
+      <p class="say">What's the exact address where the car is? Any parking or access I should tell the driver about?</p>
+      <div class="grid">
+        <label class="wide">Exact pickup address<input name="address" placeholder="123 Main St, Unit 4, Scarborough, ON M1C 1A1" autocomplete="off"></label>
+        <label>Town<input name="city" list="towns" autocomplete="off"></label>
+      </div>
+      <p class="q"><b>"Or would you rather bring it to our yard?"</b> Drop-off pays more (no tow).</p>
+      <div class="choice" data-name="drop_off"><button type="button" data-value="false">We pick it up</button><button type="button" data-value="true">They drop it off</button></div>
+      <datalist id="towns"></datalist>
+    </section>
+
+    <section id="s-offer" data-step="offer" class="node decision">
+      <h2><span class="badge"><b>7</b></span>Offer</h2>
+      <div class="offer-big none" id="offerBig">Need year, make and model</div>
+      <p class="muted" id="offerNote"></p>
+      <p class="say" id="offerSay">Based on what you've told me, we can pay <span data-fill="range">that range</span>. The final number is when we see it, and the tow is free.</p>
+      <div class="grid">
+        <label>Agreed price <span class="muted">(blank = low end)</span><input name="agreed" inputmode="numeric" autocomplete="off"></label>
+      </div>
+      <div class="objections" style="margin-top:.6rem">
+        <details><summary>"That's too low"</summary><p class="say">I hear you. That includes the free tow, and we pay on pickup with no haggling at the door. What number did you have in mind?</p><p class="muted">If their number is inside the range and the rims and cat check out, you can meet it. Above the top of the range, offer the top and note their number.</p></details>
+        <details><summary>"I need to think about it"</summary><p class="say">No problem. I'll email you the offer so you have it. Want me to hold a pickup time anyway? You can move it any time.</p><p class="muted">Use "Save offer" so the follow-up emails go out.</p></details>
+        <details><summary>"Someone offered me more"</summary><p class="say">Was that a firm number after they see the car, or a phone estimate? Lots of places quote high and drop it at the door. Ours is up front.</p><p class="muted">Put who and how much in the notes.</p></details>
+        <details><summary>"It still runs, it's worth more"</summary><p class="say">If it runs and drives we pay the top of the range. If it's worth fixing, a private sale may get you more, and that's fine. We're the fast, no-hassle option.</p></details>
+      </div>
+      <div class="row">
+        <button type="button" class="primary" data-outcome="accepted">They accept: book it</button>
+        <button type="button" data-outcome="offer">Thinking: save offer</button>
+      </div>
+      <div class="row">
+        <select name="lost_reason" aria-label="Why not selling" style="width:auto">
+          <option value="">Not selling because...</option>
+          <option>Price too low</option><option>Sold elsewhere</option><option>No ownership</option><option>Keeping the car</option><option>Out of area</option><option>Just checking prices</option><option>Other (see notes)</option>
+        </select>
+        <button type="button" class="danger" data-outcome="lost">Save as lost</button>
+      </div>
+      <div class="exits"><span class="exit">Thinking: save offer, follow-up emails go out</span><span class="exit end">Not selling: save as lost</span></div>
+    </section>
+
+    <section id="s-book" data-step="book" class="node">
+      <h2><span class="badge"><b>8</b></span>Book <small id="bookHint">2-hour windows, 8am to 8pm</small></h2>
+      <p class="say">What day works for the pickup? We come in a 2-hour window.</p>
+      <div class="days" id="days"></div>
+      <div class="row" style="margin-top:.5rem"><label style="width:auto">Later date<input type="date" id="laterDate"></label></div>
+      <div class="windows" id="windows"></div>
+      <p class="muted" id="calNote" style="margin-top:.5rem"></p>
+      <div class="row">
+        <button type="button" class="primary" data-outcome="booked" id="bookBtn">Book pickup</button>
+        <span class="muted" id="inviteNote"></span>
+      </div>
+    </section>
+
+    <section id="s-close" data-step="close" class="node">
+      <h2><span class="badge"><b>9</b></span>Close</h2>
+      <p class="say" id="closeSay">You're booked. Please have the ownership and the keys ready. If anything changes, call or text us at (647) 204-4200. Thanks!</p>
+      <div class="row"><button type="button" id="doneBtn" class="primary">Done, next call</button></div>
+    </section>
+  </main>
+
+  <aside class="panel">
+    <div class="card">
+      <h3>Offer</h3>
+      <div class="offer-big none" id="panelOffer">No price yet</div>
+      <p class="muted" id="panelSaved"></p>
+    </div>
+    <div class="card">
+      <h3>This lead</h3>
+      <dl class="facts" id="facts"></dl>
+      <p class="muted" id="photos" style="margin-top:.4rem"></p>
+    </div>
+    <div class="card">
+      <h3>Before booking</h3>
+      <ul class="todo" id="todo"></ul>
+    </div>
+    <div class="card">
+      <h3>Notes</h3>
+      <textarea name="notes" rows="4" placeholder="Damage, parts missing, competitor offer, gate code..."></textarea>
+      <div class="row"><button type="button" data-outcome="save" id="saveBtn">Save</button><a id="airtableLink" href="#" target="_blank" rel="noopener" class="hidden">Open in Airtable</a></div>
+    </div>
+    <div class="card">
+      <h3>Saved</h3>
+      <ul class="log" id="log"><li class="muted">Nothing saved on this call yet.</li></ul>
+    </div>
+  </aside>
+</div>
+
+<div class="bar"><strong id="barOffer">No price yet</strong><button type="button" data-outcome="save">Save</button></div>
+
+<script>
+(function() {
+  var key = new URLSearchParams(location.hash.slice(1)).get('k');
+  var DRAFT = 'scrappy-call-draft';
+  var TOWNS = ['Scarborough','Port Union','West Rouge','Rouge Hill','Highland Creek','Malvern','Agincourt','Guildwood','Morningside','Birch Cliff','Cliffside','Wexford','Steeles',"L'Amoreaux",'East York','Leaside','The Beaches','Danforth','East Toronto','North York','Don Mills','Toronto','Pickering','Ajax','Whitby','Oshawa','Courtice','Bowmanville','Clarington','Uxbridge','Markham','Unionville','Stouffville','Richmond Hill','Vaughan','Thornhill'];
+  var STEPS = [
+    { id: 'start', label: 'Who is calling', exit: 'Wants parts? End call' },
+    { id: 'caller', label: 'Caller' },
+    { id: 'car', label: 'Car' },
+    { id: 'condition', label: 'Condition' },
+    { id: 'ownership', label: 'Ownership', exit: 'None? Lost' },
+    { id: 'location', label: 'Address' },
+    { id: 'offer', label: 'Offer', exit: 'Thinking? Save offer. No? Lost' },
+    { id: 'book', label: 'Book' },
+    { id: 'close', label: 'Close' }
+  ];
+
+  var S, price = null, slots = {}, saving = false, started = null, current = 'start', lastLookup = '';
+  var $ = function(id) { return document.getElementById(id); };
+  var sheet = document.body;
+
+  function blank() {
+    return { mode: '', id: null, url: '', stage: '', lead: '', saved_offer: '', range: '', pickup: '', photos: [],
+      name: '', phone: '', email: '', year: '', make: '', model: '', body_type: '', km: '', city: '', address: '',
+      runs: 'unknown', rims: 'unknown', cat: 'unknown', keys: '', ownership: '', drop_off: false,
+      agreed: '', lost_reason: '', notes: '', date: '', window: null, booked: null, accepted: false, body_auto: true, log: [] };
+  }
+
+  function torontoDate(offsetDays) {
+    var d = new Date(Date.now() + (offsetDays || 0) * 86400000);
+    return d.toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+  }
+  function torontoHour() {
+    return Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+  }
+  function dayName(date) {
+    return new Date(date + 'T12:00:00Z').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+  function hourLabel(h) { return (h % 12 || 12) + (h < 12 ? 'am' : 'pm'); }
+  function digits10(p) { var d = String(p || '').replace(/\D/g, ''); if (d.length === 11 && d[0] === '1') d = d.slice(1); return d.length === 10 ? d : ''; }
+  function ago(iso) {
+    var m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+    if (m < 60) return m + 'm ago';
+    if (m < 60 * 24) return Math.round(m / 60) + 'h ago';
+    return Math.round(m / 1440) + 'd ago';
+  }
+  function carName() { return [S.year, S.make, S.model].filter(Boolean).join(' '); }
+
+  function api(method, query, body) {
+    return fetch('/api/call' + (query || ''), {
+      method: method,
+      headers: { 'Content-Type': 'application/json', 'X-Books-Key': key || '' },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function(r) {
+      return r.json().catch(function() { return {}; }).then(function(j) {
+        if (!r.ok) throw new Error(j.error || ('Error ' + r.status));
+        return j;
+      });
+    });
+  }
+
+  function storeDraft() {
+    try { localStorage.setItem(DRAFT, JSON.stringify({ S: S, started: started })); } catch (e) {}
+  }
+  function clearDraft() { try { localStorage.removeItem(DRAFT); } catch (e) {} }
+
+  // ── Form <-> state ──
+  function fillInputs() {
+    sheet.querySelectorAll('[name]').forEach(function(el) {
+      var v = S[el.name];
+      if (document.activeElement !== el) el.value = v == null ? '' : v;
+    });
+  }
+
+  sheet.addEventListener('input', function(e) {
+    var el = e.target;
+    if (!el.name || !(el.name in S)) return;
+    S[el.name] = el.value;
+    if (el.name === 'phone') sheet.querySelectorAll('[name="phone"]').forEach(function(p) { if (p !== el) p.value = el.value; });
+    touched();
+    if (['year', 'make', 'model', 'city'].indexOf(el.name) >= 0) schedulePrice();
+    if (el.name === 'year' || el.name === 'make') scheduleModels();
+    if (el.name === 'model') autoBody();
+    if (el.name === 'phone' && S.mode === 'new') checkPhone();
+    render();
+  });
+
+  sheet.addEventListener('click', function(e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var group = btn.closest('.choice');
+    if (group) {
+      var name = group.getAttribute('data-name');
+      var v = btn.getAttribute('data-value');
+      S[name] = name === 'drop_off' ? v === 'true' : v;
+      if (name === 'body_type') S.body_auto = !v;
+      touched();
+      schedulePrice();
+      render();
+      return;
+    }
+    var outcome = btn.getAttribute('data-outcome');
+    if (outcome) save(outcome);
+  });
+
+  function touched() {
+    if (!started) started = Date.now();
+    storeDraft();
+  }
+
+  // ── Start: website lead or new caller ──
+  $('modeWeb').addEventListener('click', function() { setMode('web'); loadRecent(); });
+  $('modeNew').addEventListener('click', function() { setMode('new'); $('newPhone').focus(); });
+
+  function setMode(mode) {
+    S.mode = mode;
+    touched();
+    render();
+  }
+
+  var recent = [];
+  function loadRecent() {
+    $('leadsNote').textContent = 'Loading open leads...';
+    api('GET', '?recent=1').then(function(d) {
+      recent = d.leads || [];
+      $('leadsNote').textContent = d.warning ? 'Airtable is not connected (' + d.warning + ').'
+        : recent.length ? 'Open leads from the last 3 weeks, accepted offers first.' : 'No open leads in the last 3 weeks.';
+      showLeads(recent);
+    }).catch(function(err) { $('leadsNote').textContent = 'Could not load leads: ' + err.message; });
+  }
+
+  function showLeads(list) {
+    var ul = $('leadList');
+    ul.textContent = '';
+    list.forEach(function(l) {
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.type = 'button';
+      if (l.stage === 'Offer accepted') li.className = 'accepted';
+      var title = document.createElement('b'); title.textContent = l.lead || [l.year, l.make, l.model].join(' ') || 'Lead';
+      var stage = document.createElement('em'); stage.className = 'stage'; stage.textContent = l.stage + (l.saved_offer ? ', $' + l.saved_offer : '');
+      var who = document.createElement('em'); who.textContent = [l.name || 'No name', l.phone || 'no phone'].join(' · ');
+      var when = document.createElement('em'); when.textContent = l.created ? ago(l.created) : '';
+      b.append(title, stage, who, when);
+      b.addEventListener('click', function() { loadLead(l); });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+  }
+
+  $('findPhone').addEventListener('input', function() {
+    var ten = digits10(this.value);
+    if (!ten) { showLeads(recent); return; }
+    $('leadsNote').textContent = 'Searching...';
+    api('GET', '?phone=' + ten).then(function(d) {
+      $('leadsNote').textContent = (d.leads || []).length ? 'Leads with that number:' : 'No lead with that number. Use "New caller" instead.';
+      showLeads(d.leads || []);
+    }).catch(function(err) { $('leadsNote').textContent = 'Search failed: ' + err.message; });
+  });
+
+  // A new caller whose number is already in Airtable: offer that record.
+  function checkPhone() {
+    var ten = digits10(S.phone);
+    var box = $('phoneMatch');
+    if (!ten || ten === lastLookup || S.id) { if (!ten) box.classList.add('hidden'); return; }
+    lastLookup = ten;
+    api('GET', '?phone=' + ten).then(function(d) {
+      var l = (d.leads || [])[0];
+      if (!l || S.id || digits10(S.phone) !== ten) { box.classList.add('hidden'); return; }
+      box.textContent = '';
+      var p = document.createElement('p');
+      p.textContent = 'This number is already in Airtable: ' + (l.lead || 'a lead') + ' (' + l.stage + (l.created ? ', ' + ago(l.created) : '') + ').';
+      var use = document.createElement('button'); use.type = 'button'; use.className = 'warn'; use.textContent = 'Use that lead';
+      use.addEventListener('click', function() { loadLead(l); });
+      var no = document.createElement('button'); no.type = 'button'; no.className = 'ghost'; no.textContent = 'No, new entry';
+      no.addEventListener('click', function() { box.classList.add('hidden'); });
+      var row = document.createElement('div'); row.className = 'row'; row.append(use, no);
+      box.append(p, row);
+      box.classList.remove('hidden');
+    }).catch(function() {});
+  }
+
+  function loadLead(l) {
+    var keep = { mode: S.mode, log: S.log };
+    S = blank();
+    Object.keys(l).forEach(function(k) { if (k in S) S[k] = l[k]; });
+    S.mode = keep.mode || 'web';
+    S.log = keep.log;
+    S.body_auto = !S.body_type;
+    lastLookup = digits10(S.phone);
+    $('phoneMatch').classList.add('hidden');
+    touched();
+    fillInputs();
+    schedulePrice(0);
+    render();
+    $('s-caller').scrollIntoView();
+  }
+
+  // ── Pricing, makes and models ──
+  var priceTimer = null;
+  function schedulePrice(delay) {
+    clearTimeout(priceTimer);
+    priceTimer = setTimeout(function() {
+      if (!S.year || !S.make || !S.model) { price = null; render(); return; }
+      api('POST', '', { type: 'price', year: S.year, make: S.make, model: S.model, body_type: S.body_type, city: S.city,
+        runs: S.runs, rims: S.rims, cat: S.cat, drop_off: S.drop_off })
+        .then(function(d) { price = d.price; render(); })
+        .catch(function() {});
+    }, delay == null ? 300 : delay);
+  }
+
+  fetch('/api/vehicles?makes').then(function(r) { return r.json(); }).then(function(d) {
+    fillList('makes', d.makes || []);
+  }).catch(function() {});
+  fillList('towns', TOWNS);
+
+  var models = [], modelTimer = null;
+  function scheduleModels() {
+    clearTimeout(modelTimer);
+    modelTimer = setTimeout(function() {
+      var y = parseInt(S.year, 10);
+      if (!(y >= 1950 && y <= 2100) || !S.make) return;
+      fetch('/api/vehicles?year=' + y + '&make=' + encodeURIComponent(S.make))
+        .then(function(r) { return r.ok ? r.json() : { models: [] }; })
+        .then(function(d) { models = d.models || []; fillList('models', models.map(function(m) { return m.name; })); autoBody(); })
+        .catch(function() {});
+    }, 400);
+  }
+  function autoBody() {
+    if (S.body_type && !S.body_auto) return;
+    var m = models.filter(function(x) { return x.name.toLowerCase() === String(S.model).toLowerCase(); })[0];
+    S.body_type = m ? m.type : '';
+    S.body_auto = true;
+  }
+  function fillList(id, items) {
+    var dl = $(id);
+    dl.textContent = '';
+    items.forEach(function(v) { var o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+  }
+
+  // ── Booking ──
+  function renderDays() {
+    var box = $('days');
+    box.textContent = '';
+    for (var i = 0; i < 7; i++) {
+      var date = torontoDate(i);
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : dayName(date);
+      b.setAttribute('aria-pressed', String(S.date === date));
+      b.addEventListener('click', pickDay.bind(null, date));
+      box.appendChild(b);
+    }
+    $('laterDate').min = torontoDate(0);
+  }
+  $('laterDate').addEventListener('change', function() { if (this.value) pickDay(this.value); });
+
+  function pickDay(date) {
+    S.date = date;
+    S.window = null;
+    touched();
+    render();
+    if (slots[date]) return;
+    api('GET', '?slots=' + date).then(function(d) { slots[date] = d; render(); })
+      .catch(function(err) { slots[date] = { error: err.message, windows: [8, 10, 12, 14, 16, 18] }; render(); });
+  }
+
+  function renderWindows() {
+    var box = $('windows');
+    box.textContent = '';
+    var info = slots[S.date];
+    $('calNote').textContent = !S.date ? 'Pick a day first.'
+      : !info ? 'Checking the calendar...'
+        : info.error ? 'Could not read the calendar (' + info.error + '). You can still book.'
+          : info.configured === false ? 'Google Calendar is not connected yet: the booking saves to Airtable and the alert email, not the calendar.' : '';
+    if (!S.date) return;
+    var hourNow = S.date === torontoDate(0) ? torontoHour() : -1;
+    (info && info.windows || [8, 10, 12, 14, 16, 18]).forEach(function(start) {
+      var taken = info && info.booked && info.booked[start] || [];
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.disabled = start + 2 <= hourNow;
+      if (taken.length) b.className = 'busy';
+      b.setAttribute('aria-pressed', String(S.window === start));
+      var t = document.createElement('span'); t.textContent = hourLabel(start) + ' to ' + hourLabel(start + 2);
+      var s = document.createElement('small'); s.textContent = taken.length ? taken.length + ' booked: ' + taken.join('; ') : 'Free';
+      b.append(t, s);
+      b.addEventListener('click', function() { S.window = start; touched(); render(); });
+      box.appendChild(b);
+    });
+  }
+
+  // ── Save ──
+  function save(outcome) {
+    if (saving) return;
+    if (outcome === 'accepted') {
+      S.accepted = true;
+      touched();
+      render();
+      $('s-book').scrollIntoView();
+      if (!S.date) pickDay(torontoDate(0));
+      return;
+    }
+    if (!key) { logLine('Open this page with the link that has the key (same key as Books).', true); return; }
+    saving = true;
+    setBusy(true);
+    var body = {};
+    Object.keys(S).forEach(function(k) { if (['log', 'photos', 'booked'].indexOf(k) < 0) body[k] = S[k]; });
+    body.type = 'save';
+    body.outcome = outcome;
+    api('POST', '', body).then(function(d) {
+      if (d.id) { S.id = d.id; S.url = d.url; }
+      if (d.stage) S.stage = d.stage;
+      if (d.price) S.saved_offer = S.agreed || d.price.low;
+      var what = outcome === 'booked' ? 'Booked ' + (d.booked && d.booked.label)
+        : outcome === 'lost' ? 'Saved as lost' : outcome === 'offer' ? 'Offer saved' : 'Saved';
+      logLine(what + (d.saved ? ' to Airtable (' + (S.stage || 'saved') + ').' : '.'), !d.saved, d.booked && d.booked.link);
+      if (d.booked) {
+        S.booked = d.booked;
+        if (d.booked.invited) logLine('Calendar invite sent to ' + S.email + '.');
+      }
+      (d.warnings || []).forEach(function(w) { logLine(w, true); });
+      touched();
+      render();
+      if (outcome === 'booked') $('s-close').scrollIntoView();
+    }).catch(function(err) {
+      logLine('Not saved: ' + err.message, true);
+    }).then(function() { saving = false; setBusy(false); });
+  }
+
+  function setBusy(on) {
+    sheet.querySelectorAll('[data-outcome]').forEach(function(b) { b.disabled = on; });
+  }
+
+  function logLine(text, bad, link) {
+    S.log.push({ t: Date.now(), text: text, bad: !!bad, link: link || null });
+    storeDraft();
+    renderLog();
+  }
+  function renderLog() {
+    var ul = $('log');
+    ul.textContent = '';
+    if (!S.log.length) { var e = document.createElement('li'); e.className = 'muted'; e.textContent = 'Nothing saved on this call yet.'; ul.appendChild(e); return; }
+    S.log.slice().reverse().forEach(function(l) {
+      var li = document.createElement('li');
+      if (l.bad) li.className = 'bad';
+      li.textContent = new Date(l.t).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' }) + '  ' + l.text + ' ';
+      if (l.link) { var a = document.createElement('a'); a.href = l.link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Calendar'; li.appendChild(a); }
+      ul.appendChild(li);
+    });
+  }
+
+  // ── Render ──
+  function done(step) {
+    switch (step) {
+      case 'start': return !!S.mode && (S.mode === 'new' ? !!digits10(S.phone) : !!S.id);
+      case 'caller': return !!(S.name && digits10(S.phone));
+      case 'car': return !!(S.year && S.make && S.model);
+      case 'condition': return S.runs !== 'unknown' && S.rims !== 'unknown' && S.cat !== 'unknown' && !!S.keys;
+      case 'ownership': return S.ownership === 'yes' || S.ownership === 'owner';
+      case 'location': return S.drop_off || !!(S.address && S.city);
+      case 'offer': return !!price && (!!S.accepted || ['Offer accepted', 'Appointment Scheduled', 'Picked up'].indexOf(S.stage) >= 0);
+      case 'book': return !!S.booked || S.stage === 'Appointment Scheduled';
+      case 'close': return false;
+    }
+    return false;
+  }
+
+  function render() {
+    // Flowchart boxes: the first unfinished step is the one to work on.
+    current = (STEPS.filter(function(s) { return !done(s.id); })[0] || STEPS[STEPS.length - 1]).id;
+    STEPS.forEach(function(s, i) {
+      var sec = $('s-' + s.id);
+      var stop = (s.id === 'ownership' && S.ownership === 'no') || (s.id === 'offer' && S.stage === 'Lost');
+      sec.classList.toggle('done', done(s.id));
+      sec.classList.toggle('current', current === s.id);
+      sec.classList.toggle('stop', stop);
+      sec.querySelector('.badge b').textContent = stop ? '!' : done(s.id) ? '✓' : String(i + 1);
+    });
+    requestAnimationFrame(drawWires);
+
+    // Start
+    $('modeWeb').setAttribute('aria-pressed', String(S.mode === 'web'));
+    $('modeNew').setAttribute('aria-pressed', String(S.mode === 'new'));
+    $('webPick').classList.toggle('hidden', S.mode !== 'web' || !!S.id);
+    $('newStart').classList.toggle('hidden', S.mode !== 'new' || !!S.id);
+    var status = $('status');
+    status.textContent = S.id ? (S.lead || carName() || 'Lead') + ' · ' + (S.stage || 'saved') : S.mode === 'web' ? 'Pick their lead' : 'New caller';
+    status.className = 'pill' + (S.id ? '' : ' new');
+    var link = $('airtableLink');
+    link.classList.toggle('hidden', !S.url);
+    if (S.url) link.href = S.url;
+
+    // Choices
+    document.querySelectorAll('.choice').forEach(function(g) {
+      var name = g.getAttribute('data-name');
+      var v = name === 'drop_off' ? String(!!S.drop_off) : (S[name] == null ? '' : String(S[name]));
+      g.querySelectorAll('button').forEach(function(b) {
+        var bv = b.getAttribute('data-value');
+        b.setAttribute('aria-pressed', String(name === 'body_type' ? (S.body_auto || !S.body_type ? bv === '' : bv === v) : bv === v));
+      });
+    });
+    $('noOwnership').classList.toggle('hidden', S.ownership !== 'no');
+
+    // Offer
+    var range = price ? price.text : '';
+    [$('offerBig'), $('panelOffer')].forEach(function(el) {
+      el.textContent = price ? range : 'Need year, make and model';
+      el.classList.toggle('none', !price);
+    });
+    $('barOffer').textContent = price ? range : 'No price yet';
+    sheet.querySelectorAll('[data-fill="range"]').forEach(function(el) { el.textContent = price ? range : 'a range'; });
+    $('offerNote').textContent = price && price.assumed.length ? 'Priced as ' + price.assumed.join(', ') + '. Ask to firm it up.' : '';
+    $('panelSaved').textContent = S.saved_offer ? 'In Airtable: $' + S.saved_offer + (S.range ? ' (' + S.range + ')' : '') : '';
+
+    // Facts
+    var facts = [
+      ['Name', S.name], ['Phone', S.phone], ['Email', S.email],
+      ['Car', [carName(), S.km ? Number(S.km).toLocaleString('en-CA') + ' km' : ''].filter(Boolean).join(', ')],
+      ['Condition', [S.runs === 'yes' ? 'runs' : S.runs === 'no' ? "doesn't run" : '', S.rims !== 'unknown' ? S.rims + ' rims' : '', S.cat !== 'unknown' ? 'cat ' + S.cat : '', S.keys ? 'keys ' + S.keys : ''].filter(Boolean).join(', ')],
+      ['Ownership', { yes: 'in their name', owner: 'owner will be there', no: 'none' }[S.ownership] || ''],
+      ['Where', S.drop_off ? 'Drop-off at the yard' : [S.address, S.city].filter(Boolean).join(', ')],
+      ['Pickup', S.booked ? S.booked.label : S.pickup]
+    ];
+    var dl = $('facts');
+    dl.textContent = '';
+    facts.forEach(function(f) {
+      var dt = document.createElement('dt'); dt.textContent = f[0];
+      var dd = document.createElement('dd'); dd.textContent = f[1] || '-';
+      dl.append(dt, dd);
+    });
+    var ph = $('photos');
+    ph.textContent = '';
+    (S.photos || []).forEach(function(u, i) {
+      var a = document.createElement('a'); a.href = u; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Photo ' + (i + 1);
+      ph.append(a, ' ');
+    });
+
+    // Booking checklist
+    var todo = [
+      ['Phone', !!digits10(S.phone)], ['Year, make, model', !!(S.year && S.make && S.model)],
+      [S.drop_off ? 'Drop-off (no address needed)' : 'Exact address', S.drop_off || !!S.address],
+      ['Ownership', S.ownership === 'yes' || S.ownership === 'owner'],
+      ['Day and window', !!(S.date && S.window != null)],
+      ['Email for the invite (optional)', !!S.email]
+    ];
+    var ul = $('todo');
+    ul.textContent = '';
+    todo.forEach(function(t) { var li = document.createElement('li'); li.textContent = t[0]; if (t[1]) li.className = 'ok'; ul.appendChild(li); });
+    $('bookBtn').textContent = S.drop_off ? 'Book drop-off' : 'Book pickup';
+    $('inviteNote').textContent = S.email ? 'Calendar invite goes to ' + S.email : 'No email: nothing is sent to them.';
+
+    renderDays();
+    renderWindows();
+    var closeSay = S.booked
+      ? "You're booked for " + S.booked.label + (S.drop_off ? ' at our yard, 125 Island Rd' : ' at ' + S.address) + '. Please have the ownership and the keys ready. If anything changes, call or text us at (647) 204-4200. Thanks!'
+      : "You're all set. If anything changes, call or text us at (647) 204-4200. Thanks!";
+    $('closeSay').textContent = closeSay;
+  }
+
+  // Arrows between the boxes: straight across within a row, and down and back
+  // to the start of the next row. Green once the step it leaves is done.
+  function drawWires() {
+    var svg = $('wires');
+    var chart = $('sheet');
+    var box = chart.getBoundingClientRect();
+    var ns = 'http://www.w3.org/2000/svg';
+    svg.textContent = '';
+    var defs = document.createElementNS(ns, 'defs');
+    ['dim', 'lit'].forEach(function(k) {
+      var m = document.createElementNS(ns, 'marker');
+      m.setAttribute('id', 'arrow-' + k); m.setAttribute('viewBox', '0 0 10 10'); m.setAttribute('refX', '9'); m.setAttribute('refY', '5');
+      m.setAttribute('markerWidth', '7'); m.setAttribute('markerHeight', '7'); m.setAttribute('orient', 'auto-start-reverse');
+      var p = document.createElementNS(ns, 'path'); p.setAttribute('d', 'M0,0 L10,5 L0,10 z');
+      p.setAttribute('fill', k === 'lit' ? '#39d353' : '#3a3a3a');
+      m.appendChild(p); defs.appendChild(m);
+    });
+    svg.appendChild(defs);
+    var nodes = STEPS.map(function(s) { return $('s-' + s.id).getBoundingClientRect(); });
+    for (var i = 0; i < nodes.length - 1; i++) {
+      var a = nodes[i], b = nodes[i + 1], d;
+      var ax = a.left - box.left, ay = a.top - box.top, bx = b.left - box.left, by = b.top - box.top;
+      if (Math.abs(a.top - b.top) < 4 && b.left > a.left) {
+        var y = ay + 28;
+        d = 'M' + (ax + a.width) + ',' + y + ' H' + (bx - 2);
+      } else {
+        var startX = ax + a.width / 2, endX = bx + b.width / 2;
+        var rowBottom = Math.max.apply(null, nodes.filter(function(n) { return Math.abs(n.top - a.top) < 4; }).map(function(n) { return n.bottom - box.top; }));
+        var midY = rowBottom + (by - rowBottom) / 2;
+        d = Math.abs(startX - endX) < 2
+          ? 'M' + startX + ',' + (ay + a.height) + ' V' + (by - 2)
+          : 'M' + startX + ',' + (ay + a.height) + ' V' + midY + ' H' + endX + ' V' + (by - 2);
+      }
+      var lit = done(STEPS[i].id);
+      var path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', d);
+      if (lit) path.setAttribute('class', 'lit');
+      path.setAttribute('marker-end', 'url(#arrow-' + (lit ? 'lit' : 'dim') + ')');
+      svg.appendChild(path);
+    }
+  }
+  if ('ResizeObserver' in window) new ResizeObserver(function() { drawWires(); }).observe($('sheet'));
+  window.addEventListener('resize', drawWires);
+
+  // ── New call and the timer ──
+  var confirmNew = false;
+  function newCall() {
+    S = blank(); price = null; started = null; lastLookup = ''; slots = {};
+    clearDraft();
+    fillInputs();
+    $('phoneMatch').classList.add('hidden');
+    $('findPhone').value = '';
+    render(); renderLog();
+    window.scrollTo(0, 0);
+  }
+  $('newCall').addEventListener('click', function() {
+    var unsaved = started && !S.log.length;
+    if (unsaved && !confirmNew) {
+      confirmNew = true;
+      this.textContent = 'Discard this call?';
+      var btn = this;
+      setTimeout(function() { confirmNew = false; btn.textContent = 'New call'; }, 4000);
+      return;
+    }
+    confirmNew = false;
+    this.textContent = 'New call';
+    newCall();
+  });
+  $('doneBtn').addEventListener('click', newCall);
+
+  setInterval(function() {
+    if (!started) { $('timer').textContent = '0:00'; return; }
+    var s = Math.floor((Date.now() - started) / 1000);
+    $('timer').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }, 1000);
+
+  // ── Boot ──
+  S = blank();
+  try {
+    var draft = JSON.parse(localStorage.getItem(DRAFT) || 'null');
+    if (draft && draft.S) {
+      S = Object.assign(blank(), draft.S);
+      started = draft.started || null;
+      logLine('Restored the call you had open.', false);
+    }
+  } catch (e) {}
+  if (!key) {
+    var pe = $('pageError');
+    pe.textContent = 'This page needs the private link with the key (same key as the Books link). Without it nothing loads or saves.';
+    pe.hidden = false;
+  }
+  fillInputs();
+  render();
+  renderLog();
+  if (S.year && S.make && S.model) schedulePrice(0);
+  if (S.mode === 'web' && !S.id) loadRecent();
+})();
+</script>
+</body>
+</html>

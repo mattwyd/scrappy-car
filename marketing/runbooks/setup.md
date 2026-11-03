@@ -5,7 +5,7 @@ Checklist from the original plan. The live to-do list is TODO.md at the repo roo
 ## Week 1: foundations
 
 - [x] **Repo hygiene** [Matt]: `.vercelignore` excludes `marketing/`; `.gitignore` excludes `.env`, `marketing/infra/.env`, `marketing/infra/backups/`. Done when `vercel build` output has no `marketing/` files.
-- [x] ~~**Supabase**~~ Replaced: leads live in HubSpot (see TODO.md). [Matt]: use the existing carca.sh project if it's in the Canada region, otherwise create a new one in Canada (Central) and move carca.sh over. Run `marketing/supabase/schema.sql`. Migrate `carcash_leads` into `leads` with `brand='carcash'`, then create a `carcash_leads` compatibility view. Done when both sites' tables exist and carca.sh still inserts successfully.
+- [x] ~~**Supabase**~~ Replaced: leads live in Airtable (see TODO.md). [Matt]: use the existing carca.sh project if it's in the Canada region, otherwise create a new one in Canada (Central) and move carca.sh over. Run `marketing/supabase/schema.sql`. Migrate `carcash_leads` into `leads` with `brand='carcash'`, then create a `carcash_leads` compatibility view. Done when both sites' tables exist and carca.sh still inserts successfully.
 - [x] ~~**Confirm prices**~~ Replaced: the offer range is fitted to 113 yard quotes (api/_lib.js). [Marce/Ryan]: fill real Scrappy Car numbers in `scrap_prices`.
 - [x] **PostHog on scrappycar.ca** [Matt]: same snippet and project key as carca.sh, add `brand` super property, events from `tracking-plan.md` for phone clicks. Done when events show in PostHog Live.
 - [x] **Attribution script** [Matt]: first/last touch capture into `sc_attr`, channel rules, including `ai_assistant` referrers.
@@ -23,7 +23,7 @@ Checklist from the original plan. The live to-do list is TODO.md at the repo roo
 - [ ] W06 review requests. Test on a team member's phone.
 - [ ] W02 call logging (full version after port completes).
 - [ ] Twilio port cutover (Sunday evening), then full call flow: simultaneous ring, whisper, recording notice, after-hours voicemail.
-- [ ] W05 offline conversions (now planned as the HubSpot to Google Ads link, see TODO.md): create `pickup_completed` conversion action in Google Ads (import, click-based), link developer token.
+- [ ] W05 offline conversions (planned as a scheduled upload of picked-up leads from Airtable, see TODO.md): create `pickup_completed` conversion action in Google Ads (import, click-based), link developer token.
 - [ ] W07 review replies.
 - [ ] Two weeks of baseline data, then lock KPI targets in `README.md`.
 

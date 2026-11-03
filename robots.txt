@@ -1,58 +1,72 @@
 User-agent: *
 Allow: /
 Disallow: /books
+Disallow: /call
 
 # Search and AI assistants: explicitly allowed so answers can cite this site.
 User-agent: Googlebot
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: Bingbot
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: ChatGPT-User
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: GPTBot
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: PerplexityBot
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: Perplexity-User
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: ClaudeBot
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: Claude-SearchBot
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: Claude-User
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: Google-Extended
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: Applebot
 Allow: /
 Disallow: /books
+Disallow: /call
 
 User-agent: Applebot-Extended
 Allow: /
 Disallow: /books
+Disallow: /call
 
 Sitemap: https://scrappycar.ca/sitemap.xml
