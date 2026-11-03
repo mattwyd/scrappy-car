@@ -582,9 +582,9 @@
     box.textContent = '';
     var info = slots[S.date];
     $('calNote').textContent = !S.date ? 'Pick a day first.'
-      : !info ? 'Checking the calendar...'
-        : info.error ? 'Could not read the calendar (' + info.error + '). You can still book.'
-          : info.configured === false ? 'Google Calendar is not connected yet: the booking saves to Airtable and the alert email, not the calendar.' : '';
+      : !info ? 'Checking what is booked...'
+        : info.error ? 'Could not check bookings (' + info.error + '). You can still book.'
+          : info.configured === false ? 'Airtable is not connected, so taken windows are not shown.' : '';
     if (!S.date) return;
     var hourNow = S.date === torontoDate(0) ? torontoHour() : -1;
     (info && info.windows || [8, 10, 12, 14, 16, 18]).forEach(function(start) {
@@ -629,7 +629,7 @@
       logLine(what + (d.saved ? ' to Airtable (' + (S.stage || 'saved') + ').' : '.'), !d.saved, d.booked && d.booked.link);
       if (d.booked) {
         S.booked = d.booked;
-        if (d.booked.invited) logLine('Calendar invite sent to ' + S.email + '.');
+        logLine(d.booked.team ? 'Calendar invite sent to the team' + (d.booked.invited ? ' and ' + S.email + '.' : '.') : 'No calendar invite went out.', !d.booked.team);
       }
       (d.warnings || []).forEach(function(w) { logLine(w, true); });
       touched();
@@ -760,7 +760,7 @@
     ul.textContent = '';
     todo.forEach(function(t) { var li = document.createElement('li'); li.textContent = t[0]; if (t[1]) li.className = 'ok'; ul.appendChild(li); });
     $('bookBtn').textContent = S.drop_off ? 'Book drop-off' : 'Book pickup';
-    $('inviteNote').textContent = S.email ? 'Calendar invite goes to ' + S.email : 'No email: nothing is sent to them.';
+    $('inviteNote').textContent = S.email ? 'Calendar invite goes to ' + S.email + ' and the team' : 'No email: only the team gets the calendar invite.';
 
     renderDays();
     renderWindows();

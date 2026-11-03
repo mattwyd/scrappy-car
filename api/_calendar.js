@@ -1,50 +1,19 @@
-// Pickup bookings on the "Scrappy Car pickups" Google Calendar, used by the call
-// sheet (api/call.js). One-time setup: scripts/google-calendar-setup.mjs signs in
-// as the calendar owner and saves GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-// GOOGLE_REFRESH_TOKEN and GOOGLE_CALENDAR_ID to Vercel. Until those are set a
-// booking still saves to Airtable and the alert says it isn't on the calendar.
+// Pickup bookings for the call sheet (api/call.js). A booking is a calendar
+// invite (.ics) emailed from hello@ through Resend: one to the customer when
+// they gave an email, one to the team (ALERT_EMAILS) with the details. Gmail
+// puts both straight on Google Calendar, so there's no Google sign-in to keep
+// alive. What's already booked comes from the Airtable leads (Pickup Date and
+// Pickup Window). The invite UID is per lead, so rebooking moves the event
+// instead of adding a second one.
+const crypto = require('crypto');
+const {
+  airtable, AIRTABLE_LEAD_FIELDS: F, AIRTABLE_LEADS_TABLE_ID: TABLE,
+  resendConfigured, domainAddress, sendEmail, alertEmails,
+} = require('./_lib');
+
 const TZ = 'America/Toronto';
 const WINDOW_HOURS = 2;
 const WINDOWS = [8, 10, 12, 14, 16, 18]; // start hours: 8am to 8pm in 2-hour windows
-
-function calendarConfigured() {
-  const e = process.env;
-  return !!(e.GOOGLE_CLIENT_ID && e.GOOGLE_CLIENT_SECRET && e.GOOGLE_REFRESH_TOKEN && e.GOOGLE_CALENDAR_ID);
-}
-
-let cached = null;
-
-async function accessToken() {
-  if (cached && cached.expires > Date.now() + 60 * 1000) return cached.token;
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-      grant_type: 'refresh_token',
-    }),
-    signal: AbortSignal.timeout(8000),
-  });
-  const body = await res.json().catch(() => ({}));
-  // invalid_grant means the sign-in was revoked or expired: rerun the setup script.
-  if (!res.ok) throw new Error(`google sign-in ${res.status}: ${body.error || 'error'}`);
-  cached = { token: body.access_token, expires: Date.now() + (body.expires_in || 3600) * 1000 };
-  return cached.token;
-}
-
-async function gcal(path, options = {}) {
-  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(process.env.GOOGLE_CALENDAR_ID)}${path}`, {
-    ...options,
-    headers: { Authorization: `Bearer ${await accessToken()}`, 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(8000),
-  });
-  const text = await res.text();
-  const body = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new Error(`google calendar ${res.status}: ${(body && body.error && body.error.message) || text.slice(0, 200)}`);
-  return body;
-}
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -55,10 +24,6 @@ function torontoOffset(date) {
     .find((p) => p.type === 'timeZoneName');
   const offset = part ? part.value.replace('GMT', '') : '';
   return offset || '+00:00';
-}
-
-function torontoHour(iso) {
-  return Number(new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' }).format(new Date(iso)));
 }
 
 function torontoToday() {
@@ -77,40 +42,102 @@ function validSlot(date, start) {
   return days >= 0 && days <= 60;
 }
 
-// What's already booked that day, by window start hour: { 10: ['Pickup: ...'] }.
+// Leads already booked that day, by window start hour: { 10: ['2009 Honda Civic · Ajax'] }.
 async function bookingsOn(date) {
   const q = new URLSearchParams({
-    timeMin: `${date}T00:00:00${torontoOffset(date)}`,
-    timeMax: `${date}T23:59:59${torontoOffset(date)}`,
-    singleEvents: 'true', orderBy: 'startTime', maxResults: '100',
+    filterByFormula: `AND(DATETIME_FORMAT({${F.pickupDate}},'YYYY-MM-DD')="${date}",{${F.stage}}!="Lost")`,
+    maxRecords: '50',
   });
-  const { items = [] } = await gcal(`/events?${q}`);
+  const { records = [] } = await airtable(`/${TABLE}?${q}`);
   const out = {};
-  items.forEach((ev) => {
-    if (ev.status === 'cancelled' || !ev.start || !ev.start.dateTime) return;
-    const h = torontoHour(ev.start.dateTime);
-    const w = WINDOWS.find((s) => h >= s && h < s + WINDOW_HOURS);
-    if (w != null) (out[w] = out[w] || []).push(ev.summary || 'Busy');
+  records.forEach((r) => {
+    const f = r.fields || {};
+    const start = WINDOWS.find((s) => windowLabel(s) === f[F.pickupWindow]);
+    if (start != null) (out[start] = out[start] || []).push(f[F.lead] || 'Pickup');
   });
   return out;
 }
 
-// Guests see the title, location and description, so keep internal notes out.
-async function createPickup({ date, start, summary, location, description, email }) {
-  const ev = await gcal(`/events?sendUpdates=${email ? 'all' : 'none'}`, {
-    method: 'POST',
-    body: JSON.stringify({
-      summary, location, description,
-      start: { dateTime: `${date}T${pad(start)}:00:00`, timeZone: TZ },
-      end: { dateTime: `${date}T${pad(start + WINDOW_HOURS)}:00:00`, timeZone: TZ },
-      attendees: email ? [{ email }] : undefined,
-      guestsCanInviteOthers: false,
-      guestsCanModify: false,
-    }),
+const icsTime = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+const icsText = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+
+// Lines over 75 octets fold onto continuation lines that start with a space.
+function fold(line) {
+  const out = [];
+  let rest = line;
+  while (Buffer.byteLength(rest) > 74) {
+    let cut = 74;
+    while (Buffer.byteLength(rest.slice(0, cut)) > 74) cut--;
+    out.push(rest.slice(0, cut));
+    rest = ` ${rest.slice(cut)}`;
+  }
+  out.push(rest);
+  return out.join('\r\n');
+}
+
+function invite({ uid, date, start, summary, location, description, organizer, attendees }) {
+  const begin = Date.parse(`${date}T${pad(start)}:00:00${torontoOffset(date)}`);
+  return [
+    'BEGIN:VCALENDAR', 'PRODID:-//Scrappy Car//Call sheet//EN', 'VERSION:2.0', 'CALSCALE:GREGORIAN', 'METHOD:REQUEST',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    // Each send outranks the last, so a rebooking replaces the earlier time.
+    `SEQUENCE:${Math.floor(Date.now() / 1000) - 1790000000}`,
+    `DTSTAMP:${icsTime(Date.now())}`,
+    `DTSTART:${icsTime(begin)}`,
+    `DTEND:${icsTime(begin + WINDOW_HOURS * 3600000)}`,
+    `SUMMARY:${icsText(summary)}`,
+    location ? `LOCATION:${icsText(location)}` : null,
+    `DESCRIPTION:${icsText(description)}`,
+    `ORGANIZER;CN=Scrappy Car:mailto:${organizer}`,
+    ...attendees.map((a) => `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${a}`),
+    'STATUS:CONFIRMED', 'TRANSP:OPAQUE',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Pickup', 'TRIGGER:-PT1H', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR',
+  ].filter(Boolean).map(fold).join('\r\n') + '\r\n';
+}
+
+function invitesConfigured() {
+  return resendConfigured();
+}
+
+async function sendInvite({ to, subject, text, replyTo, ...event }) {
+  const ics = invite({ ...event, organizer: domainAddress('hello'), attendees: [].concat(to) });
+  await sendEmail({
+    from: `Scrappy Car <${domainAddress('hello')}>`, to, replyTo, subject, text,
+    attachments: [{ filename: 'pickup.ics', content: Buffer.from(ics).toString('base64'), content_type: 'text/calendar; charset=utf-8; method=REQUEST' }],
+    idempotencyKey: crypto.createHash('sha256').update(ics.replace(/^(SEQUENCE|DTSTAMP):.*$/gm, '')).digest('hex'),
   });
-  return { id: ev.id, link: ev.htmlLink };
+}
+
+// customer: what the customer sees ({ summary, location, description }), sent
+// only when they gave an email. team: the same pickup with the internal
+// details, sent to ALERT_EMAILS. Returns which were sent; throws only if both fail.
+async function createPickup({ leadId, date, start, email, customer, team }) {
+  const uid = `pickup-${leadId || crypto.randomBytes(8).toString('hex')}@scrappycar.ca`;
+  const label = `${dayLabel(date)}, ${windowLabel(start)}`;
+  const sent = { customer: false, team: false };
+  const errors = [];
+  if (email) {
+    try {
+      await sendInvite({
+        uid: `c-${uid}`, date, start, ...customer, to: email, replyTo: alertEmails(),
+        subject: `Your Scrappy Car pickup: ${label}`, text: customer.description,
+      });
+      sent.customer = true;
+    } catch (err) { errors.push(`customer invite: ${err && err.message}`); }
+  }
+  if (alertEmails().length) {
+    try {
+      await sendInvite({ uid: `t-${uid}`, date, start, ...team, to: alertEmails(), subject: `Pickup: ${label}, ${team.summary}`, text: team.description });
+      sent.team = true;
+    } catch (err) { errors.push(`team invite: ${err && err.message}`); }
+  }
+  if (errors.length && !sent.customer && !sent.team) throw new Error(errors.join('; '));
+  if (errors.length) console.error('pickup invite partly failed:', errors.join('; '));
+  return { ...sent, errors };
 }
 
 module.exports = {
-  WINDOWS, calendarConfigured, bookingsOn, createPickup, validSlot, windowLabel, dayLabel, torontoToday,
+  WINDOWS, invitesConfigured, bookingsOn, createPickup, validSlot, windowLabel, dayLabel, torontoToday, invite,
 };

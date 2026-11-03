@@ -10,11 +10,11 @@ const cal = require('./_calendar');
 //
 //   GET  ?recent=1                  -> open leads from the last 3 weeks, to call back
 //   GET  ?phone=4165551234          -> leads with that number
-//   GET  ?slots=YYYY-MM-DD          -> pickups already on the calendar that day
+//   GET  ?slots=YYYY-MM-DD          -> pickups already booked that day (from Airtable)
 //   POST { type: 'price', ...car }  -> the offer range
 //   POST { type: 'save', id?, outcome, ...lead }
 //        Creates or updates the Airtable lead. outcome: 'save' | 'offer' |
-//        'accepted' | 'booked' (also puts the pickup on the calendar) | 'lost'.
+//        'accepted' | 'booked' (also emails calendar invites) | 'lost'.
 //
 // Like the instant offer, a save never fails because of Airtable or the
 // calendar: whatever didn't save goes in the alert email instead.
@@ -224,27 +224,41 @@ async function save(b) {
   if (skipped.length) warnings.push(`Airtable has no ${skipped.join(', ')} field yet, so that is only in the alert email.`);
 
   let event = null;
-  if (slot && !cal.calendarConfigured()) {
-    warnings.push('Google Calendar is not set up yet, so the pickup is not on the calendar.');
+  if (slot && !cal.invitesConfigured()) {
+    warnings.push('Email is not set up (Resend), so no calendar invites went out.');
   } else if (slot) {
     const pay = agreed ? `$${agreed}` : price.text;
+    const what = car.dropOff ? 'drop-off' : 'pickup';
+    const location = car.dropOff ? YARD_ADDRESS : address;
     try {
       event = await cal.createPickup({
-        date: slot.date, start: slot.start, email,
-        summary: `Scrappy Car ${car.dropOff ? 'drop-off' : 'pickup'}: ${carName(car)}${name ? ` (${name})` : ''}`,
-        location: car.dropOff ? YARD_ADDRESS : address,
-        description: [
-          `${carName(car)}${car.dropOff ? ', dropped off at our yard' : ''}`,
-          `Offer: ${pay}${agreed ? '' : ', confirmed when we see the car'}`,
-          name || phone ? `Contact: ${[name, phone].filter(Boolean).join(', ')}` : null,
-          'Please have the ownership and the keys ready.',
-          `Questions or need another time? Call or text ${BUSINESS_PHONE}.`,
-          'https://scrappycar.ca',
-        ].filter(Boolean).join('\n'),
+        leadId: recId, date: slot.date, start: slot.start, email,
+        customer: {
+          summary: `Scrappy Car ${what}: ${carName(car)}`,
+          location,
+          description: [
+            `${carName(car)}${car.dropOff ? ', dropped off at our yard' : ''}`,
+            `Offer: ${pay}${agreed ? '' : ', confirmed when we see the car'}`,
+            'Please have the ownership and the keys ready.',
+            `Questions or need another time? Call or text ${BUSINESS_PHONE}.`,
+            'https://scrappycar.ca',
+          ].join('\n'),
+        },
+        team: {
+          summary: `${what}: ${carName(car)}${name ? ` (${name})` : ''}`,
+          location,
+          description: [
+            [name, phone, email].filter(Boolean).join(', '),
+            `Offer: ${agreed ? `$${agreed} agreed (range ${price.text})` : price.text}`,
+            notes || null,
+            recId ? `Airtable: ${leadUrl(recId)}` : null,
+          ].filter(Boolean).join('\n'),
+        },
       });
+      event.errors.forEach((e) => warnings.push(`Invite not sent (${e.slice(0, 140)}).`));
     } catch (err) {
-      console.error('call sheet calendar failed:', err && err.message);
-      warnings.push(`Not on the calendar (${String(err && err.message).slice(0, 140)}).`);
+      console.error('call sheet invites failed:', err && err.message);
+      warnings.push(`No calendar invites went out (${String(err && err.message).slice(0, 140)}).`);
     }
   }
 
@@ -266,7 +280,7 @@ async function save(b) {
       [carName(car), condition].filter(Boolean).join(' · ') || null,
       price ? `Offer: ${agreed ? `$${agreed} agreed (range ${price.text})` : price.text}` : null,
       car.dropOff ? 'Drop-off at the yard' : address ? `Address: ${address}` : car.city ? `Where: ${car.city}` : null,
-      slot ? (event ? `Calendar: ${event.link}` : 'Not on the calendar yet.') : null,
+      slot ? (event && event.team ? 'Calendar invite sent to the team' + (event.customer ? ' and the customer.' : '.') : 'No calendar invite went out.') : null,
       notes ? `Notes: ${notes.replace(/\n/g, ' · ')}` : null,
       recId ? `Airtable: ${leadUrl(recId)}` : null,
       ...warnings,
@@ -283,7 +297,7 @@ async function save(b) {
     status: 200,
     body: {
       ok: true, id: recId, url: recId ? leadUrl(recId) : null, stage, saved: !!recId && !warnings.some((w) => w.startsWith('Not saved')),
-      price, booked: slot ? { label: slot.label, link: event && event.link, invited: !!(event && email) } : null, warnings,
+      price, booked: slot ? { label: slot.label, invited: !!(event && event.customer), team: !!(event && event.team) } : null, warnings,
     },
   };
 }
@@ -297,7 +311,7 @@ module.exports = async (req, res) => {
       const q = req.query || {};
       if (q.slots !== undefined) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(q.slots)) return res.status(400).json({ error: 'slots must be YYYY-MM-DD' });
-        if (!cal.calendarConfigured()) return res.status(200).json({ configured: false, windows: cal.WINDOWS });
+        if (!process.env.AIRTABLE_TOKEN) return res.status(200).json({ configured: false, windows: cal.WINDOWS });
         return res.status(200).json({ configured: true, windows: cal.WINDOWS, booked: await cal.bookingsOn(q.slots) });
       }
       if (!process.env.AIRTABLE_TOKEN) return res.status(200).json({ leads: [], warning: 'AIRTABLE_TOKEN missing' });

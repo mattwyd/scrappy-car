@@ -283,7 +283,7 @@ function domainAddress(local) {
 
 // Throws on failure. A retry with the same idempotencyKey within 24 hours
 // doesn't send a second copy.
-async function sendEmail({ from, to, replyTo, subject, text, html, headers, tags, idempotencyKey }) {
+async function sendEmail({ from, to, replyTo, subject, text, html, headers, tags, attachments, idempotencyKey }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -292,7 +292,7 @@ async function sendEmail({ from, to, replyTo, subject, text, html, headers, tags
       ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
     body: JSON.stringify({
-      from, to: [].concat(to), reply_to: replyTo ? [].concat(replyTo) : undefined, subject, text, html, headers,
+      from, to: [].concat(to), reply_to: replyTo ? [].concat(replyTo) : undefined, subject, text, html, headers, attachments,
       // Resend echoes tags back in webhook events (api/email-events.js).
       tags: tags ? Object.entries(tags).filter(([, v]) => v).map(([name, value]) => ({ name, value: String(value) })) : undefined,
     }),
