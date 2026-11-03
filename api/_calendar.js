@@ -75,10 +75,10 @@ function fold(line) {
   return out.join('\r\n');
 }
 
-function invite({ uid, date, start, summary, location, description, organizer, attendees }) {
+function invite({ uid, date, start, summary, location, description, organizer, attendees, cancel }) {
   const begin = Date.parse(`${date}T${pad(start)}:00:00${torontoOffset(date)}`);
   return [
-    'BEGIN:VCALENDAR', 'PRODID:-//Scrappy Car//Call sheet//EN', 'VERSION:2.0', 'CALSCALE:GREGORIAN', 'METHOD:REQUEST',
+    'BEGIN:VCALENDAR', 'PRODID:-//Scrappy Car//Call sheet//EN', 'VERSION:2.0', 'CALSCALE:GREGORIAN', `METHOD:${cancel ? 'CANCEL' : 'REQUEST'}`,
     'BEGIN:VEVENT',
     `UID:${uid}`,
     // Each send outranks the last, so a rebooking replaces the earlier time.
@@ -91,7 +91,7 @@ function invite({ uid, date, start, summary, location, description, organizer, a
     `DESCRIPTION:${icsText(description)}`,
     `ORGANIZER;CN=Scrappy Car:mailto:${organizer}`,
     ...attendees.map((a) => `ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${a}`),
-    'STATUS:CONFIRMED', 'TRANSP:OPAQUE',
+    `STATUS:${cancel ? 'CANCELLED' : 'CONFIRMED'}`, 'TRANSP:OPAQUE',
     'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Pickup', 'TRIGGER:-PT1H', 'END:VALARM',
     'END:VEVENT', 'END:VCALENDAR',
   ].filter(Boolean).map(fold).join('\r\n') + '\r\n';
@@ -103,9 +103,10 @@ function invitesConfigured() {
 
 async function sendInvite({ to, subject, text, replyTo, ...event }) {
   const ics = invite({ ...event, organizer: domainAddress('hello'), attendees: [].concat(to) });
+  const method = event.cancel ? 'CANCEL' : 'REQUEST';
   await sendEmail({
     from: `Scrappy Car <${domainAddress('hello')}>`, to, replyTo, subject, text,
-    attachments: [{ filename: 'pickup.ics', content: Buffer.from(ics).toString('base64'), content_type: 'text/calendar; charset=utf-8; method=REQUEST' }],
+    attachments: [{ filename: 'pickup.ics', content: Buffer.from(ics).toString('base64'), content_type: `text/calendar; charset=utf-8; method=${method}` }],
     idempotencyKey: crypto.createHash('sha256').update(ics.replace(/^(SEQUENCE|DTSTAMP):.*$/gm, '')).digest('hex'),
   });
 }
@@ -138,6 +139,21 @@ async function createPickup({ leadId, date, start, email, customer, team }) {
   return { ...sent, errors };
 }
 
+// Takes a booked pickup off everyone's calendar (same UIDs as createPickup).
+// Best effort: returns the errors instead of throwing.
+async function cancelPickup({ leadId, date, start, email, summary }) {
+  const uid = `pickup-${leadId}@scrappycar.ca`;
+  const label = `${dayLabel(date)}, ${windowLabel(start)}`;
+  const text = `The Scrappy Car pickup on ${label} is cancelled. Questions? Call or text (647) 204-4200.`;
+  const errors = [];
+  const sends = [];
+  if (email) sends.push(sendInvite({ uid: `c-${uid}`, date, start, summary, description: text, cancel: true, to: email, replyTo: alertEmails(), subject: `Cancelled: Scrappy Car pickup, ${label}`, text }));
+  if (alertEmails().length) sends.push(sendInvite({ uid: `t-${uid}`, date, start, summary, description: text, cancel: true, to: alertEmails(), subject: `Cancelled pickup: ${label}, ${summary}`, text }));
+  (await Promise.allSettled(sends)).forEach((r) => { if (r.status === 'rejected') errors.push(String(r.reason && r.reason.message)); });
+  return errors;
+}
+
 module.exports = {
+  cancelPickup,
   WINDOWS, invitesConfigured, bookingsOn, createPickup, validSlot, windowLabel, dayLabel, torontoToday, invite,
 };

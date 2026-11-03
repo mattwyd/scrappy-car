@@ -194,12 +194,14 @@ async function save(b) {
   let recId = id;
   let stage = null;
   let current = null;
+  let before = {};
   let skipped = [];
   if (!process.env.AIRTABLE_TOKEN) {
     warnings.push('Not saved to Airtable (AIRTABLE_TOKEN missing). The alert email has the details.');
   } else {
     try {
-      current = id ? ((await airtable(`/${TABLE}/${encodeURIComponent(id)}`)).fields || {})[F.stage] || null : null;
+      before = id ? (await airtable(`/${TABLE}/${encodeURIComponent(id)}`)).fields || {} : {};
+      current = before[F.stage] || null;
       if (outcome === 'lost') stage = 'Lost';
       else if (outcome === 'save' && current) stage = current;
       else {
@@ -259,6 +261,19 @@ async function save(b) {
     } catch (err) {
       console.error('call sheet invites failed:', err && err.message);
       warnings.push(`No calendar invites went out (${String(err && err.message).slice(0, 140)}).`);
+    }
+  }
+
+  // A booked pickup that's now lost comes off the calendars.
+  const wasBooked = current === 'Appointment Scheduled' && before[F.pickupDate] && before[F.pickupWindow];
+  if (outcome === 'lost' && wasBooked && cal.invitesConfigured()) {
+    const start = cal.WINDOWS.find((w) => cal.windowLabel(w) === before[F.pickupWindow]);
+    if (start != null && cal.validSlot(before[F.pickupDate], start)) {
+      const errors = await cal.cancelPickup({
+        leadId: recId, date: before[F.pickupDate], start, email: email || before[F.email],
+        summary: `Scrappy Car pickup: ${before[F.lead] || carName(car)}`,
+      });
+      warnings.push(errors.length ? `Calendar cancellation not sent (${errors.join('; ').slice(0, 140)}).` : 'Pickup cancelled on the calendars.');
     }
   }
 
