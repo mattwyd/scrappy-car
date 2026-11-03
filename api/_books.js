@@ -119,6 +119,9 @@ const CLOSING = ['Offer accepted', 'Appointment Scheduled', 'Picked up'];
 
 const number = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 const has = (value) => value != null && value !== '';
+// Channel as the site names them (google_ads, gbp, organic...). Leads from
+// before channels were saved fall back to how they came in.
+const channelOf = (f) => f[L.channel] || { 'Phone call': 'phone', Imported: 'imported' }[f[L.source]] || 'unknown';
 const rowUrl = (id) => leadUrl(id).replace(AIRTABLE_LEADS_TABLE_ID, AIRTABLE_PNL_TABLE_ID);
 
 async function closedRecords() {
@@ -165,7 +168,7 @@ function deals(rows, leads) {
     byName.delete(String(q[PNL.lead] || ''));
     return {
       id: r.id, url: rowUrl(r.id), name: q[PNL.lead] || r.id, stage: f[L.stage] || q[PNL.stage] || '',
-      date: f[L.pickupDate] || torontoDate(r.createdTime), channel: f[L.source] || 'unknown',
+      date: f[L.pickupDate] || torontoDate(r.createdTime), channel: channelOf(f),
       revenue: q[PNL.revenue], purchase: has(q[PNL.purchase]) ? q[PNL.purchase] : f[L.offer], acquisition: q[PNL.acquisition], hasRow: true,
     };
   });
@@ -173,7 +176,7 @@ function deals(rows, leads) {
     const f = lead.fields || {};
     if (!CLOSING.includes(f[L.stage]) || !name || /\btest\b/i.test(name)) return;
     out.push({
-      id: lead.id, url: leadUrl(lead.id), name, stage: f[L.stage], date: f[L.pickupDate] || torontoDate(lead.createdTime), channel: f[L.source] || 'unknown',
+      id: lead.id, url: leadUrl(lead.id), name, stage: f[L.stage], date: f[L.pickupDate] || torontoDate(lead.createdTime), channel: channelOf(f),
       revenue: null, purchase: f[L.offer], acquisition: null, hasRow: false,
     });
   });
@@ -246,7 +249,7 @@ async function pnl(month) {
   const otherExpenses = sum(other, 'amount');
 
   const channels = {};
-  leads.forEach((r) => { const c = r.fields[L.source] || 'unknown'; (channels[c] = channels[c] || { leads: 0, pickups: 0, profit: 0 }).leads++; });
+  leads.forEach((r) => { const c = channelOf(r.fields); (channels[c] = channels[c] || { leads: 0, pickups: 0, profit: 0 }).leads++; });
   pickups.forEach((r) => { const c = (channels[r.channel] = channels[r.channel] || { leads: 0, pickups: 0, profit: 0 }); c.pickups++; c.profit = money(c.profit + r.profit); });
   if (channels[ADS_CHANNEL] || adSpend) {
     const c = (channels[ADS_CHANNEL] = channels[ADS_CHANNEL] || { leads: 0, pickups: 0, profit: 0 });

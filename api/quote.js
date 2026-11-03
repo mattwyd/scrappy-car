@@ -38,6 +38,15 @@ module.exports = async (req, res) => {
     ? body.photos.filter((u) => typeof u === 'string' && u.startsWith('https://')).slice(0, 4)
     : [];
 
+  // Attribution captured client-side by track.js (last touch wins for the lead).
+  const attr = body.attribution && typeof body.attribution === 'object' ? body.attribution : {};
+  const last = attr.last && typeof attr.last === 'object' ? attr.last : {};
+  const first = attr.first && typeof attr.first === 'object' ? attr.first : {};
+  const channel = clean(last.channel, 40);
+  // Which site sent them (chatgpt.com, perplexity.ai, google.com…). ChatGPT often
+  // strips the referrer but tags links with utm_source, so fall back to that.
+  const referrer = clean(last.referrer_host, 100) || clean(last.utm_source, 100);
+
   const vehicle = `${year} ${make} ${model}`;
   const summary = [
     `${name} · ${phone}${email ? ' · ' + email : ''}`,
@@ -45,6 +54,7 @@ module.exports = async (req, res) => {
     city ? `Where: ${city}` : null,
     notes ? `Notes: ${notes}` : null,
     photos.length ? `Photos: ${photos.join(' ')}` : null,
+    `Source: ${channel || 'unknown'}${referrer ? ` (${referrer})` : ''}${last.utm_campaign ? ' / ' + clean(last.utm_campaign, 100) : ''}`,
   ].filter(Boolean).join('\n');
 
   const fields = {
@@ -68,6 +78,10 @@ module.exports = async (req, res) => {
   if (email) fields[AIRTABLE_LEAD_FIELDS.email] = email;
   if (km != null) fields[AIRTABLE_LEAD_FIELDS.km] = km;
   if (city) fields[AIRTABLE_LEAD_FIELDS.location] = city;
+  if (channel) fields[AIRTABLE_LEAD_FIELDS.channel] = channel;
+  if (clean(first.channel, 40)) fields[AIRTABLE_LEAD_FIELDS.firstChannel] = clean(first.channel, 40);
+  const via = [referrer, clean(last.utm_campaign, 100)].filter(Boolean).join(' / ');
+  if (via) fields[AIRTABLE_LEAD_FIELDS.referrer] = via;
 
   let id = null;
   let crmNote = null;

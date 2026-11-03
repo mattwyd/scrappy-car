@@ -179,6 +179,8 @@ const AIRTABLE_LEAD_FIELDS = {
   stage: 'Pipeline Stage', offer: 'Offer Amount (CAD)', priceRange: 'Steve Price Range (CAD)',
   confidence: 'Pricing Confidence', followupsSent: 'Follow-up Emails Sent', followupsStopped: 'Follow-ups Stopped',
   lostReason: 'Lost Reason', source: 'Intake Source',
+  // Where the lead came from (track.js on the site, or the call sheet's question).
+  channel: 'Channel', firstChannel: 'First Channel', referrer: 'Referrer',
   // Written by the call sheet (/call).
   address: 'Pickup Address', pickupDate: 'Pickup Date', pickupWindow: 'Pickup Window', notes: 'Call Notes',
 };
@@ -203,11 +205,37 @@ async function airtable(path, options = {}) {
   return body;
 }
 
+// Creates (no id) or updates a lead. Airtable rejects a whole write over one
+// unknown field, so a field the base doesn't have yet is dropped and reported
+// instead of losing the lead. typecast adds new select options (like a new
+// Intake Source) the first time they're used.
+async function writeAirtableLead(id, fields) {
+  const body = { ...fields };
+  const skipped = [];
+  for (;;) {
+    try {
+      const rec = await airtable(id ? `/${AIRTABLE_LEADS_TABLE_ID}/${encodeURIComponent(id)}` : `/${AIRTABLE_LEADS_TABLE_ID}`, {
+        method: id ? 'PATCH' : 'POST', body: JSON.stringify({ fields: body, typecast: true }),
+      });
+      if (skipped.length) console.error('airtable lead fields missing:', skipped.join(', '));
+      return { id: rec.id, skipped };
+    } catch (err) {
+      const e = err.airtable || {};
+      const unknown = e.type === 'UNKNOWN_FIELD_NAME' && /"(.+)"/.exec(e.message || '');
+      if (unknown && unknown[1] in body) {
+        skipped.push(unknown[1]);
+        delete body[unknown[1]];
+      } else if (body[AIRTABLE_LEAD_FIELDS.source] === 'Phone call' && /option|choice/i.test(e.message || '')) {
+        body[AIRTABLE_LEAD_FIELDS.source] = 'Manual';
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 async function createAirtableLead(fields) {
-  const record = await airtable(`/${AIRTABLE_LEADS_TABLE_ID}`, {
-    method: 'POST', body: JSON.stringify({ fields }),
-  });
-  return record.id;
+  return (await writeAirtableLead(null, fields)).id;
 }
 
 async function listAirtableRecords(tableId = AIRTABLE_LEADS_TABLE_ID) {
@@ -402,7 +430,7 @@ async function notify(lines, options) {
 
 module.exports = {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled,
-  airtable, createAirtableLead, listAirtableRecords, listAirtableLeads, updateAirtableLead, acceptAirtableLead, AIRTABLE_LEAD_FIELDS,
+  airtable, writeAirtableLead, createAirtableLead, listAirtableRecords, listAirtableLeads, updateAirtableLead, acceptAirtableLead, AIRTABLE_LEAD_FIELDS,
   AIRTABLE_LEADS_TABLE_ID, leadUrl,
   notify, notifyBeeper,
   emailConfigured, resendConfigured, domainAddress, sendEmail, alertEmails, capture,

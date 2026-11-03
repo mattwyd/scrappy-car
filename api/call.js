@@ -1,6 +1,6 @@
 const {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, notify,
-  airtable, acceptAirtableLead, AIRTABLE_LEAD_FIELDS: F, AIRTABLE_LEADS_TABLE_ID: TABLE, leadUrl,
+  airtable, writeAirtableLead: writeLead, acceptAirtableLead, AIRTABLE_LEAD_FIELDS: F, AIRTABLE_LEADS_TABLE_ID: TABLE, leadUrl,
 } = require('./_lib');
 const { keyOk } = require('./_books');
 const cal = require('./_calendar');
@@ -22,6 +22,8 @@ const cal = require('./_calendar');
 const STAGES = ['New lead', 'Offer sent', 'Offer accepted', 'Appointment Scheduled', 'Picked up'];
 const OPEN = ['New lead', 'Offer sent', 'Offer accepted'];
 const OUTCOME_STAGE = { offer: 'Offer sent', accepted: 'Offer accepted', booked: 'Appointment Scheduled' };
+// The call sheet's "How did they find us?" answers, as the site's channel names.
+const CHANNELS = ['google_ads', 'gbp', 'organic', 'referral', 'offline', 'other'];
 const OWNERSHIP = { yes: 'in their name', owner: 'owner will be at pickup', no: 'no ownership' };
 const YARD_ADDRESS = 'Scrappy Car, 125 Island Rd, Scarborough, ON M1C 2P7';
 const BUSINESS_PHONE = '(647) 204-4200';
@@ -95,6 +97,7 @@ function toForm(r) {
     name: f[F.contactName] || '', phone: f[F.phone] || '', email: f[F.email] || '',
     year: f[F.year] || '', make: f[F.make] || '', model: f[F.model] || '',
     body_type: ['car', 'truck'].includes(f[F.vehicleType]) ? f[F.vehicleType] : '',
+    channel: f[F.channel] || '',
     km: f[F.km] || '', city: f[F.location] || '', address: f[F.address] || '',
     runs: fromYesNo(f[F.runsDrives], 'yes', 'no'),
     rims: fromYesNo(f[F.alloys], 'alloy', 'steel'),
@@ -114,33 +117,6 @@ async function findLeads(formula, max) {
     .sort((a, b) => (b.stage === 'Offer accepted') - (a.stage === 'Offer accepted') || b.created.localeCompare(a.created));
 }
 
-// Airtable rejects a whole write over one unknown field, so fields the base
-// doesn't have yet are dropped (and reported) rather than losing the lead.
-// typecast adds the "Phone call" intake source the first time it's used.
-async function writeLead(id, fields) {
-  const body = { ...fields };
-  const skipped = [];
-  for (;;) {
-    try {
-      const rec = await airtable(id ? `/${TABLE}/${encodeURIComponent(id)}` : `/${TABLE}`, {
-        method: id ? 'PATCH' : 'POST', body: JSON.stringify({ fields: body, typecast: true }),
-      });
-      return { id: rec.id, skipped };
-    } catch (err) {
-      const e = err.airtable || {};
-      const unknown = e.type === 'UNKNOWN_FIELD_NAME' && /"(.+)"/.exec(e.message || '');
-      if (unknown && unknown[1] in body) {
-        skipped.push(unknown[1]);
-        delete body[unknown[1]];
-      } else if (body[F.source] === 'Phone call' && /option|choice/i.test(e.message || '')) {
-        body[F.source] = 'Manual';
-      } else {
-        throw err;
-      }
-    }
-  }
-}
-
 async function save(b) {
   const id = /^rec[a-zA-Z0-9]{14}$/.test(b.id || '') ? b.id : null;
   const outcome = ['offer', 'accepted', 'booked', 'lost'].includes(b.outcome) ? b.outcome : 'save';
@@ -152,6 +128,7 @@ async function save(b) {
   const address = clean(b.address, 160);
   const agreed = digits(b.agreed, 100000);
   const lostReason = clean(b.lost_reason, 120);
+  const channel = CHANNELS.includes(b.channel) ? b.channel : '';
   const keys = ['yes', 'no'].includes(b.keys) ? b.keys : '';
   const ownership = OWNERSHIP[b.ownership] ? b.ownership : '';
   const notes = notesText({ keys, ownership, dropOff: car.dropOff, notes: clean(b.notes, 2000) });
@@ -189,6 +166,8 @@ async function save(b) {
   if (outcome === 'lost') put('lostReason', lostReason);
   if (slot) { put('pickupDate', slot.date); put('pickupWindow', slot.window); }
   if (!id) put('source', 'Phone call');
+  put('channel', channel);
+  if (!id) put('firstChannel', channel);
 
   const warnings = [];
   let recId = id;

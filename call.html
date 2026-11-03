@@ -174,6 +174,8 @@
         <label>Phone<input type="tel" name="phone" autocomplete="off"></label>
         <label class="wide">Email <span class="muted">(optional, gets the calendar invite and follow-ups)</span><input type="email" name="email" autocomplete="off"></label>
       </div>
+      <p class="q"><b>"How did you find us?"</b> <span class="muted">(feeds cost per lead in Books)</span></p>
+      <div class="choice" data-name="channel"><button type="button" data-value="google_ads">Google ad</button><button type="button" data-value="gbp">Google Maps</button><button type="button" data-value="organic">Google search</button><button type="button" data-value="referral">Someone told them</button><button type="button" data-value="offline">Truck or sign</button><button type="button" data-value="other">Other</button></div>
     </section>
 
     <section id="s-car" data-step="car" class="node">
@@ -335,7 +337,7 @@
     return { mode: '', id: null, url: '', stage: '', lead: '', saved_offer: '', range: '', pickup: '', photos: [],
       name: '', phone: '', email: '', year: '', make: '', model: '', body_type: '', km: '', city: '', address: '',
       runs: 'unknown', rims: 'unknown', cat: 'unknown', keys: '', ownership: '', drop_off: false,
-      agreed: '', lost_reason: '', notes: '', date: '', window: null, booked: null, accepted: false, body_auto: true, log: [] };
+      agreed: '', lost_reason: '', notes: '', channel: '', date: '', window: null, booked: null, accepted: false, body_auto: true, log: [] };
   }
 
   function torontoDate(offsetDays) {
