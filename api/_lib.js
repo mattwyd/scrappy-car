@@ -1,5 +1,4 @@
-// Shared helpers for the instant-offer API. Ported from carca.sh; the lead store
-// is HubSpot (contact + deal) instead of Supabase.
+// Shared helpers for the instant-offer API. The lead store is Airtable.
 
 // Best-effort per-IP throttle. Serverless instances are recycled so this is a
 // speed bump against a script hammering the form, not a real rate limiter.
@@ -166,124 +165,74 @@ function readBody(req) {
   return typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
 }
 
-// ── HubSpot ────────────────────────────────────────────────────────────────
-// Needs HUBSPOT_TOKEN (private app / service key). The deal pipeline is found by
-// label so no stage ids live in env vars; run scripts/hubspot-setup.mjs once.
+// ── Airtable CRM ───────────────────────────────────────────────────────────
+// The public site writes only to the lean production-intake fields.  Keep the
+// token server-side in Vercel as AIRTABLE_TOKEN; it needs data.records:write
+// access to the Lead & Pricing CRM base only.
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'appEOUr8ngofFtQ6U';
+const AIRTABLE_LEADS_TABLE_ID = process.env.AIRTABLE_LEADS_TABLE_ID || 'tbluxWwt1dVjCJGC3';
+const AIRTABLE_LEAD_FIELDS = {
+  lead: 'Lead', contactName: 'Contact Name', phone: 'Phone', email: 'Email',
+  year: 'Vehicle Year', make: 'Vehicle Make', model: 'Vehicle Model', vehicleType: 'Vehicle Type',
+  km: 'Odometer (km)', location: 'Location', runsDrives: 'Runs / Drives',
+  cat: 'Original Catalytic Converter', alloys: 'Alloy Wheels', photos: 'Photo URLs',
+  stage: 'Pipeline Stage', offer: 'Offer Amount (CAD)', priceRange: 'Steve Price Range (CAD)',
+  confidence: 'Pricing Confidence', followupsSent: 'Follow-up Emails Sent', followupsStopped: 'Follow-ups Stopped',
+};
 
-const PIPELINE_LABEL = process.env.HUBSPOT_PIPELINE_LABEL || 'Scrappy Car';
-const STAGE_LABELS = { offerSent: 'Offer sent', accepted: 'Offer accepted', pickedUp: 'Picked up', lost: 'Lost' };
-let pipelineCache = null;
-
-async function hubspot(path, options = {}) {
-  const token = process.env.HUBSPOT_TOKEN;
-  if (!token) throw new Error('HUBSPOT_TOKEN missing');
-  const res = await fetch(`https://api.hubapi.com${path}`, {
+async function airtable(path, options = {}) {
+  const token = process.env.AIRTABLE_TOKEN;
+  if (!token) throw new Error('AIRTABLE_TOKEN missing');
+  const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}${path}`, {
     ...options,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(options.headers || {}) },
     signal: AbortSignal.timeout(8000),
   });
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new Error(`hubspot ${options.method || 'GET'} ${path} ${res.status}: ${text.slice(0, 300)}`);
+  if (!res.ok) throw new Error(`airtable ${options.method || 'GET'} ${path} ${res.status}: ${text.slice(0, 300)}`);
   return body;
 }
 
-async function pipeline() {
-  if (pipelineCache) return pipelineCache;
-  const { results } = await hubspot('/crm/v3/pipelines/deals');
-  const p = results.find((r) => r.label === PIPELINE_LABEL);
-  if (!p) throw new Error(`deal pipeline "${PIPELINE_LABEL}" not found; run scripts/hubspot-setup.mjs`);
-  const stage = (label) => {
-    const s = p.stages.find((x) => x.label === label);
-    if (!s) throw new Error(`stage "${label}" missing from pipeline "${PIPELINE_LABEL}"`);
-    return s.id;
-  };
-  pipelineCache = {
-    id: p.id, offerSent: stage(STAGE_LABELS.offerSent), accepted: stage(STAGE_LABELS.accepted),
-    pickedUp: stage(STAGE_LABELS.pickedUp), lost: stage(STAGE_LABELS.lost),
-  };
-  return pipelineCache;
-}
-
-async function upsertContact({ email, name, phone, city }) {
-  const properties = {};
-  if (email) properties.email = email;
-  if (name) properties.firstname = name;
-  if (phone) properties.phone = phone;
-  if (city) properties.city = city;
-  if (email) {
-    const { results } = await hubspot('/crm/v3/objects/contacts/batch/upsert', {
-      method: 'POST',
-      body: JSON.stringify({ inputs: [{ idProperty: 'email', id: email, properties }] }),
-    });
-    return results[0].id;
-  }
-  // No email: phone isn't a unique key in HubSpot, so look it up before creating.
-  const found = await hubspot('/crm/v3/objects/contacts/search', {
-    method: 'POST',
-    body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'phone', operator: 'EQ', value: phone }] }], limit: 1 }),
+async function createAirtableLead(fields) {
+  const record = await airtable(`/${AIRTABLE_LEADS_TABLE_ID}`, {
+    method: 'POST', body: JSON.stringify({ fields }),
   });
-  if (found.results && found.results.length) {
-    await hubspot(`/crm/v3/objects/contacts/${found.results[0].id}`, { method: 'PATCH', body: JSON.stringify({ properties }) });
-    return found.results[0].id;
-  }
-  const created = await hubspot('/crm/v3/objects/contacts', { method: 'POST', body: JSON.stringify({ properties }) });
-  return created.id;
+  return record.id;
 }
 
-// Deal properties added after launch. HUBSPOT_TOKEN is a sensitive Vercel var
-// that can't be read back to run scripts/hubspot-setup.mjs locally, so these
-// are created on first use instead (needs the crm.schemas.deals.write scope).
-const LATE_DEAL_PROPS = [
-  { name: 'sc_referrer_host', label: 'Referring site (last touch)', type: 'string', fieldType: 'text', groupName: 'scrappy_car' },
-  { name: 'sc_first_referrer_host', label: 'Referring site (first touch)', type: 'string', fieldType: 'text', groupName: 'scrappy_car' },
-  // amount holds the low end of the offer range.
-  { name: 'sc_offer_high', label: 'Offer range high', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
-  // Entered by hand at pickup; read by api/_books.js for the P&L.
-  { name: 'sc_job_costs', label: 'Job costs', description: 'Gas, tow or other money spent on this pickup', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
-  // Written by api/followups.js and api/unsubscribe.js.
-  { name: 'sc_followups_sent', label: 'Follow-up emails sent', type: 'number', fieldType: 'number', groupName: 'scrappy_car' },
-  {
-    name: 'sc_followups_stopped', label: 'Unsubscribed from follow-ups', type: 'bool', fieldType: 'booleancheckbox', groupName: 'scrappy_car',
-    options: [{ label: 'Yes', value: 'true', displayOrder: 0 }, { label: 'No', value: 'false', displayOrder: 1 }],
-  },
-];
-
-async function ensureLateDealProps() {
-  for (const p of LATE_DEAL_PROPS) {
-    try {
-      await hubspot('/crm/v3/properties/deals', { method: 'POST', body: JSON.stringify(p) });
-    } catch (err) {
-      if (!/ 409:|already exists/i.test(String(err && err.message))) throw err;
-    }
-  }
+async function listAirtableRecords(tableId = AIRTABLE_LEADS_TABLE_ID) {
+  const records = [];
+  let offset;
+  do {
+    const query = new URLSearchParams({ pageSize: '100' });
+    if (offset) query.set('offset', offset);
+    const page = await airtable(`/${tableId}?${query}`);
+    records.push(...(page.records || []));
+    offset = page.offset;
+  } while (offset);
+  return records;
 }
 
-async function createDeal(properties, contactId) {
-  const p = await pipeline();
-  const deal = await hubspot('/crm/v3/objects/deals', {
-    method: 'POST',
-    body: JSON.stringify({
-      properties: { ...properties, pipeline: p.id, dealstage: p.offerSent },
-      // 3 = HubSpot-defined deal → contact association.
-      associations: [{ to: { id: contactId }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 3 }] }],
-    }),
+const listAirtableLeads = () => listAirtableRecords(AIRTABLE_LEADS_TABLE_ID);
+
+async function updateAirtableLead(id, fields) {
+  const record = await airtable(`/${AIRTABLE_LEADS_TABLE_ID}/${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: JSON.stringify({ fields }),
   });
-  return deal.id;
+  return record.fields || {};
 }
 
-// Moves a deal from "Offer sent" to "Offer accepted". Returns the deal's
-// properties when this call made the move, or null if it had already moved
-// (a replayed accept must not fire a second notification).
-async function acceptDeal(id) {
-  const p = await pipeline();
-  const deal = await hubspot(`/crm/v3/objects/deals/${encodeURIComponent(id)}?properties=dealname,amount,sc_offer_high,dealstage,description`);
-  if (deal.properties.dealstage !== p.offerSent) return null;
-  await hubspot(`/crm/v3/objects/deals/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ properties: { dealstage: p.accepted } }),
-  });
-  return deal.properties;
+// Only transition an offer once. This lets the Airtable P&L automation create
+// one financial row per accepted lead even when a customer replays the link.
+async function acceptAirtableLead(id) {
+  const encoded = encodeURIComponent(id);
+  const record = await airtable(`/${AIRTABLE_LEADS_TABLE_ID}/${encoded}`);
+  const stage = record.fields && record.fields[AIRTABLE_LEAD_FIELDS.stage];
+  if (stage === 'Offer accepted') return null;
+  if (stage !== 'Offer sent') return null;
+  await updateAirtableLead(encoded, { [AIRTABLE_LEAD_FIELDS.stage]: 'Offer accepted' });
+  return record.fields || {};
 }
 
 // ── Beeper (Matrix) alerts, same room setup as carca.sh ───────────────────
@@ -444,7 +393,7 @@ async function notify(lines, options) {
 
 module.exports = {
   bodyTypeFor, priceFor, offerText, clean, digits, toE164, readBody, throttled,
-  hubspot, pipeline, upsertContact, createDeal, acceptDeal, notify, notifyBeeper,
+  airtable, createAirtableLead, listAirtableRecords, listAirtableLeads, updateAirtableLead, acceptAirtableLead, AIRTABLE_LEAD_FIELDS,
+  notify, notifyBeeper,
   emailConfigured, resendConfigured, domainAddress, sendEmail, alertEmails, capture,
-  LATE_DEAL_PROPS, ensureLateDealProps,
 };

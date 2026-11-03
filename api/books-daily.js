@@ -1,9 +1,8 @@
-const { pipeline, notify } = require('./_lib');
-const { booksKey, torontoDate, previousMonth, searchDeals, missingPrices, pnl, reportLines } = require('./_books');
+const { notify } = require('./_lib');
+const { booksKey, torontoDate, previousMonth, closedRecords, missingPrices, pnl, reportLines } = require('./_books');
 
 // Daily cron (vercel.json). On the 1st it sends last month's P&L to the
-// owners. On Mondays it lists picked-up deals still missing their prices,
-// since HubSpot's free plan can't make those fields required.
+// owners. On Mondays it lists closed Airtable P&L rows still missing their prices.
 //
 // ?run=report or ?run=missing forces one; ?dry=1 returns it without sending.
 
@@ -12,7 +11,7 @@ const SITE = process.env.SITE_URL || 'https://scrappycar.ca';
 module.exports = async (req, res) => {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ error: 'unauthorized' });
-  if (!process.env.HUBSPOT_TOKEN) return res.status(200).json({ skipped: 'HUBSPOT_TOKEN missing' });
+  if (!process.env.AIRTABLE_TOKEN) return res.status(200).json({ skipped: 'AIRTABLE_TOKEN missing' });
 
   const q = req.query || {};
   const dry = q.dry === '1';
@@ -28,18 +27,13 @@ module.exports = async (req, res) => {
       if (!dry) await notify(out.report);
     }
     if (q.run === 'missing' || (!q.run && weekday === 1)) {
-      const p = await pipeline();
-      const picked = await searchDeals([
-        { propertyName: 'pipeline', operator: 'EQ', value: p.id },
-        { propertyName: 'dealstage', operator: 'EQ', value: p.pickedUp },
-      ]);
-      const missing = missingPrices(picked);
+      const missing = missingPrices(await closedRecords());
       out.missing = missing;
       if (missing.length && !dry) {
         await notify([
-          `🧾 ${missing.length} picked-up deal(s) need prices for the P&L`,
+          `🧾 ${missing.length} Airtable P&L row(s) need prices`,
           '',
-          ...missing.map((m) => `${m.name}: ${m.missing.join(', ')}${m.url ? `\n${m.url}` : ''}`),
+          ...missing.map((m) => `${m.name}: ${m.missing.join(', ')}`),
           '',
           `Books: ${link}`,
         ]);

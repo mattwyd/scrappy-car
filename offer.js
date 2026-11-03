@@ -1,5 +1,5 @@
 // Instant-offer form. Ported from carca.sh; markup lives in index.html (#offer),
-// styles in offer.css. Posts to /api/quote and /api/accept, which write to HubSpot.
+// styles in offer.css. Posts to /api/quote and /api/accept, which write to Airtable.
 // ---- INSTANT OFFER CALCULATOR ----
 (function() {
   var calc = document.getElementById('calc');

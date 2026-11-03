@@ -1,4 +1,4 @@
-const { hubspot, notify } = require('./_lib');
+const { updateAirtableLead, AIRTABLE_LEAD_FIELDS, notify } = require('./_lib');
 const { verify } = require('./_followups');
 
 // The "Stop these emails" link in follow-up emails. Opening the link only shows
@@ -25,7 +25,7 @@ function page(res, status, title, body) {
 module.exports = async (req, res) => {
   const q = req.query || {};
   const id = String(q.d || '');
-  if (!/^\d+$/.test(id) || !verify(id, String(q.s || ''))) {
+  if (!/^rec[A-Za-z0-9]+$/.test(id) || !verify(id, String(q.s || ''))) {
     return page(res, 400, "That link didn't work",
       '<p>To stop our emails, reply to one with "stop" or call <a href="tel:6472044200">(647) 204-4200</a>.</p>');
   }
@@ -36,17 +36,13 @@ module.exports = async (req, res) => {
   }
 
   try {
-    await hubspot(`/crm/v3/objects/deals/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ properties: { sc_followups_stopped: 'true' } }),
-    });
+    await updateAirtableLead(id, { [AIRTABLE_LEAD_FIELDS.followupsStopped]: true });
   } catch (err) {
     // The request still has to be honoured, so the owners stop it by hand.
     console.error('unsubscribe failed', id, err && err.message);
     await notify([
-      `⚠️ UNSUBSCRIBE NOT SAVED (deal ${id})`,
-      'Tick "Unsubscribed from follow-ups" on this deal in HubSpot so the follow-up emails stop.',
-      process.env.HUBSPOT_PORTAL_ID ? `https://app.hubspot.com/contacts/${process.env.HUBSPOT_PORTAL_ID}/record/0-3/${id}` : null,
+      `⚠️ UNSUBSCRIBE NOT SAVED (Airtable lead ${id})`,
+      'Open the lead in Airtable and tick "Follow-ups Stopped" so the follow-up emails stop.',
     ]).catch(() => {});
   }
   return page(res, 200, "You're unsubscribed",

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { hubspot, capture, notify } = require('./_lib');
+const { updateAirtableLead, AIRTABLE_LEAD_FIELDS, capture, notify } = require('./_lib');
 
 // Resend webhook for follow-up emails. Each delivery outcome becomes a PostHog
 // event on the same person as their site visit. A bounce or a spam complaint
@@ -59,25 +59,22 @@ module.exports = async (req, res) => {
   try { event = JSON.parse(payload); } catch (e) { return res.status(400).json({ error: 'bad json' }); }
   const tags = tagsOf(event.data);
   const name = EVENTS[event.type];
-  if (tags.kind !== 'followup' || !name || !/^\d+$/.test(tags.deal || '')) return res.status(200).json({ ignored: true });
+  if (tags.kind !== 'followup' || !name || !/^rec[A-Za-z0-9]+$/.test(tags.lead || '')) return res.status(200).json({ ignored: true });
 
-  const props = { deal_id: tags.deal, step: Number(tags.step) || null };
+  const props = { lead_id: tags.lead, step: Number(tags.step) || null };
   if (event.data.bounce) props.bounce_type = event.data.bounce.type || null;
-  await capture(name, tags.ph || `deal-${tags.deal}`, props);
+  await capture(name, `lead-${tags.lead}`, props);
 
   if (STOPS.has(event.type)) {
     const why = event.type === 'email.complained' ? 'marked it as spam' : 'the address bounced';
     try {
-      await hubspot(`/crm/v3/objects/deals/${encodeURIComponent(tags.deal)}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ properties: { sc_followups_stopped: 'true' } }),
-      });
-      await notify([`📭 Follow-ups stopped for deal ${tags.deal}: ${why} (email ${tags.step}).`]);
+      await updateAirtableLead(tags.lead, { [AIRTABLE_LEAD_FIELDS.followupsStopped]: true });
+      await notify([`📭 Follow-ups stopped for Airtable lead ${tags.lead}: ${why} (email ${tags.step}).`]);
     } catch (err) {
       console.error('could not stop follow-ups', tags.deal, err && err.message);
       await notify([
-        `⚠️ FOLLOW-UPS NOT STOPPED (deal ${tags.deal})`,
-        `The customer ${why}. Tick "Unsubscribed from follow-ups" on this deal in HubSpot.`,
+        `⚠️ FOLLOW-UPS NOT STOPPED (Airtable lead ${tags.lead})`,
+        `The customer ${why}. Tick "Follow-ups Stopped" on that Airtable lead.`,
       ]).catch(() => {});
     }
   }

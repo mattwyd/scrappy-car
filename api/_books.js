@@ -1,16 +1,16 @@
 // The books: expenses and ad spend, and the monthly P&L worked out from them
-// plus HubSpot's picked-up deals. Used by api/books.js (the Books page and the
+// plus Airtable's closed-lead P&L rows. Used by api/books.js (the Books page and the
 // Google Ads script) and api/books-daily.js (monthly email, missing prices).
 //
 // Entries live in Vercel Blob. Blob URLs are public, so everything sits under
 // a folder name derived from CRON_SECRET that nobody can guess.
 const crypto = require('crypto');
 const { list, put, del } = require('@vercel/blob');
-const { hubspot, pipeline } = require('./_lib');
+const { listAirtableLeads, listAirtableRecords } = require('./_lib');
 
 const CATEGORIES = ['Gas', 'Tow', 'Google Ads', 'Other ads', 'Insurance', 'Phone', 'Tools and parts', 'Other'];
 const ADS_CHANNEL = 'google_ads';
-const PORTAL = () => process.env.HUBSPOT_PORTAL_ID;
+const AIRTABLE_PNL_TABLE_ID = process.env.AIRTABLE_PNL_TABLE_ID || 'tblzSIcvrLREfzVNX';
 
 function derive(purpose) {
   return crypto.createHmac('sha256', process.env.CRON_SECRET).update(purpose).digest('base64url').slice(0, 32);
@@ -104,79 +104,48 @@ async function adSpendDays(month) {
   return (await Promise.all(Object.values(newest).map((b) => readJson(b.url)))).filter(Boolean);
 }
 
-// ── HubSpot deals ──
-const DEAL_PROPS = [
-  'dealname', 'dealstage', 'createdate', 'closedate', 'amount', 'sc_channel', 'sc_lost_reason',
-  'sc_sold_for', 'sc_paid_customer', 'sc_job_costs', 'sc_pickup_date',
-];
+// ── Airtable closed-lead P&L ──
+const PNL = {
+  lead: 'Closed Lead', purchase: 'Purchase Offer (CAD)', acquisition: 'Acquisition Costs (CAD)',
+  revenue: 'Revenue (CAD)', status: 'P&L Status', notes: 'Notes',
+};
 
-async function searchDeals(filters) {
-  const out = [];
-  let after;
-  do {
-    const r = await hubspot('/crm/v3/objects/deals/search', {
-      method: 'POST',
-      body: JSON.stringify({ filterGroups: [{ filters }], properties: DEAL_PROPS, limit: 100, after }),
-    });
-    out.push(...r.results);
-    after = r.paging && r.paging.next && r.paging.next.after;
-  } while (after);
-  return out;
+const number = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
+const pickupDay = (record) => torontoDate(record.createdTime);
+
+async function closedRecords() {
+  return listAirtableRecords(AIRTABLE_PNL_TABLE_ID);
 }
 
-// A date-only HubSpot property comes back as a date or as midnight UTC.
-const pickupDay = (p) => (p.sc_pickup_date ? String(p.sc_pickup_date).slice(0, 10) : p.closedate ? torontoDate(p.closedate) : null);
-const isTest = (p) => p.sc_lost_reason === 'test_or_duplicate';
-const dealUrl = (id) => (PORTAL() ? `https://app.hubspot.com/contacts/${PORTAL()}/record/0-3/${id}` : null);
-
-// Picked-up deals still missing the numbers the P&L needs, any month.
-function missingPrices(picked) {
-  return picked
-    .filter((d) => d.properties.sc_sold_for == null || d.properties.sc_paid_customer == null)
-    .map((d) => ({
-      id: d.id, name: d.properties.dealname, url: dealUrl(d.id), date: pickupDay(d.properties),
-      missing: ['sc_sold_for', 'sc_paid_customer'].filter((k) => d.properties[k] == null)
-        .map((k) => (k === 'sc_sold_for' ? 'Sold to yard for' : 'Paid to customer')),
+// Closed rows missing the sale or purchase amount, any month.
+function missingPrices(rows) {
+  return rows
+    .filter((r) => r.fields[PNL.revenue] == null || r.fields[PNL.purchase] == null)
+    .map((r) => ({
+      id: r.id, name: r.fields[PNL.lead] || r.id, date: pickupDay(r),
+      missing: [PNL.revenue, PNL.purchase].filter((k) => r.fields[k] == null),
     }));
 }
 
 async function pnl(month) {
-  const p = await pipeline();
-  const [y, m] = month.split('-').map(Number);
-  // Leads created in the month; a day either side, then trimmed to Toronto dates.
-  const from = Date.UTC(y, m - 1, 1) - 864e5;
-  const to = Date.UTC(y, m, 1) + 864e5;
-  const [picked, created, exp, ads] = await Promise.all([
-    searchDeals([{ propertyName: 'pipeline', operator: 'EQ', value: p.id }, { propertyName: 'dealstage', operator: 'EQ', value: p.pickedUp }]),
-    searchDeals([
-      { propertyName: 'pipeline', operator: 'EQ', value: p.id },
-      { propertyName: 'createdate', operator: 'GTE', value: String(from) },
-      { propertyName: 'createdate', operator: 'LT', value: String(to) },
-    ]),
-    expenses(month),
-    adSpendDays(month),
-  ]);
+  const [closed, created, exp, ads] = await Promise.all([closedRecords(), listAirtableLeads(), expenses(month), adSpendDays(month)]);
 
-  const pickups = picked
-    .filter((d) => (pickupDay(d.properties) || '').startsWith(month))
-    .map((d) => {
-      const q = d.properties;
-      const sold = money(q.sc_sold_for);
-      const paid = money(q.sc_paid_customer);
-      const job = money(q.sc_job_costs);
+  const pickups = closed
+    .filter((r) => pickupDay(r).startsWith(month))
+    .map((r) => {
+      const q = r.fields;
+      const sold = money(number(q[PNL.revenue]));
+      const paid = money(number(q[PNL.purchase]));
+      const job = money(number(q[PNL.acquisition]));
       return {
-        id: d.id, name: q.dealname, url: dealUrl(d.id), date: pickupDay(q), channel: q.sc_channel || 'unknown',
-        sold, paid, job, profit: money(sold - paid - job), complete: q.sc_sold_for != null && q.sc_paid_customer != null,
+        id: r.id, name: q[PNL.lead] || r.id, date: pickupDay(r), channel: 'unknown',
+        sold, paid, job, profit: money(sold - paid - job), complete: q[PNL.revenue] != null && q[PNL.purchase] != null,
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const leads = created.filter((d) => torontoDate(d.properties.createdate).startsWith(month) && !isTest(d.properties));
+  const leads = created.filter((r) => torontoDate(r.createdTime).startsWith(month) && !/\btest\b/i.test(String(r.fields.Lead || '')));
   const lost = {};
-  leads.filter((d) => d.properties.dealstage === p.lost).forEach((d) => {
-    const r = d.properties.sc_lost_reason || 'no reason given';
-    lost[r] = (lost[r] || 0) + 1;
-  });
 
   // Google Ads spend: the script's daily numbers when there are any, else
   // whatever was entered by hand under "Google Ads". Never both.
@@ -195,7 +164,7 @@ async function pnl(month) {
   const otherExpenses = sum(other, 'amount');
 
   const channels = {};
-  leads.forEach((d) => { const c = d.properties.sc_channel || 'unknown'; (channels[c] = channels[c] || { leads: 0, pickups: 0, profit: 0 }).leads++; });
+  leads.forEach((r) => { const c = r.fields['Intake Source'] || 'unknown'; (channels[c] = channels[c] || { leads: 0, pickups: 0, profit: 0 }).leads++; });
   pickups.forEach((r) => { const c = (channels[r.channel] = channels[r.channel] || { leads: 0, pickups: 0, profit: 0 }); c.pickups++; c.profit = money(c.profit + r.profit); });
   if (channels[ADS_CHANNEL] || adSpend) {
     const c = (channels[ADS_CHANNEL] = channels[ADS_CHANNEL] || { leads: 0, pickups: 0, profit: 0 });
@@ -209,7 +178,7 @@ async function pnl(month) {
     month, revenue, carCost, jobCosts, grossProfit, adSpend, adSpendSource: ads.length ? 'google_ads_script' : 'entered',
     otherExpenses, byCategory, netProfit: money(grossProfit - adSpend - otherExpenses),
     leads: leads.length, pickupCount: pickups.length, pickups, channels, lostReasons: lost,
-    incomplete: pickups.filter((r) => !r.complete).length, missing: missingPrices(picked), expenses: exp,
+    incomplete: pickups.filter((r) => !r.complete).length, missing: missingPrices(closed), expenses: exp,
   };
 }
 
@@ -241,5 +210,5 @@ function reportLines(r, link) {
 
 module.exports = {
   CATEGORIES, booksKey, keyOk, torontoDate, previousMonth, money,
-  addExpense, expenses, removeExpense, setAdSpend, adSpendDays, searchDeals, missingPrices, pnl, reportLines,
+  addExpense, expenses, removeExpense, setAdSpend, adSpendDays, closedRecords, missingPrices, pnl, reportLines,
 };
