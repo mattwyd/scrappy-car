@@ -19,7 +19,6 @@
     }
   ],
   "crons": [
-    { "path": "/api/followups", "schedule": "0 14 * * *" },
     { "path": "/api/books-daily", "schedule": "0 13 * * *" }
   ]
 }
