@@ -11,6 +11,10 @@ const { resendConfigured, domainAddress, sendEmail, alertEmails } = require('./_
 const TZ = 'America/Toronto';
 const WINDOW_HOURS = 1;
 const WINDOWS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // start hours: 8am to 10pm in 1-hour windows
+// Times the website offers customers: after work, 5pm to 9pm (Matt, Nov 20).
+const SITE_WINDOWS = [17, 18, 19, 20];
+const SITE_DAYS = 14; // how far ahead the site offers times
+const SITE_LEAD_MS = 2 * 3600000; // a same-day time has to be at least 2 hours out
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -56,8 +60,17 @@ function fold(line) {
   return out.join('\r\n');
 }
 
+// When a window starts, in ms since the epoch.
+const slotStart = (date, start) => Date.parse(`${date}T${pad(start)}:00:00${torontoOffset(date)}`);
+
+// The next n Toronto dates from today, like "2026-11-20".
+function nextDates(n) {
+  const today = torontoToday();
+  return Array.from({ length: n }, (_, i) => new Date(Date.parse(`${today}T12:00:00Z`) + i * 86400000).toISOString().slice(0, 10));
+}
+
 function invite({ uid, date, start, summary, location, description, organizer, attendees }) {
-  const begin = Date.parse(`${date}T${pad(start)}:00:00${torontoOffset(date)}`);
+  const begin = slotStart(date, start);
   return [
     'BEGIN:VCALENDAR', 'PRODID:-//Scrappy Car//Call sheet//EN', 'VERSION:2.0', 'CALSCALE:GREGORIAN', 'METHOD:REQUEST',
     'BEGIN:VEVENT',
@@ -120,5 +133,5 @@ async function createPickup({ leadId, date, start, email, customer, team }) {
 }
 
 module.exports = {
-  WINDOWS, invitesConfigured, createPickup, validSlot, windowLabel, dayLabel, torontoToday, invite,
+  WINDOWS, SITE_WINDOWS, SITE_DAYS, SITE_LEAD_MS, WINDOW_HOURS, slotStart, nextDates, invitesConfigured, createPickup, validSlot, windowLabel, dayLabel, torontoToday, invite,
 };

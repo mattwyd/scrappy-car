@@ -9,6 +9,7 @@
   var modelTypes = {};
   var photos = [];
   var quote = null;
+  var lastPayload = null;
 
   // Engagement state for PostHog: where people start, which field they were on
   // when they left, and what happened once they saw an offer.
@@ -678,7 +679,7 @@
     if (val('f_email') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val('f_email'))) return fail('That email looks off. Fix it or leave it blank.', 'email');
     submitted = true;
 
-    var payload = {
+    var payload = lastPayload = {
       year: val('f_year'),
       make: val('f_make'),
       model: val('f_model'),
@@ -831,7 +832,7 @@
     if (!quote) return;
     var btn = this;
     btn.disabled = true;
-    btn.textContent = 'Locking it in…';
+    btn.textContent = 'Sending…';
 
     fetch('/api/accept', {
       method: 'POST',
@@ -863,8 +864,166 @@
     }).catch(function() {
       track('offer_accept_failed', { offer: quote.offer, id: quote.id });
       btn.disabled = false;
-      btn.textContent = 'Accept My Offer';
+      btn.textContent = 'None of these work? Have us call you';
       document.getElementById('acceptError').textContent = "That didn't go through. Try again.";
+    });
+  });
+
+
+  // ── Get paid: pick a pickup time ────────────────────────────────────────
+  // Picking a time is accepting the offer (POST /api/book). Times come from
+  // /api/slots: evenings that don't clash with the team calendar.
+  var sched = { days: null, date: null, start: null, loading: false };
+  var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function dateParts(iso) {
+    var d = new Date(iso + 'T12:00:00Z');
+    return { dow: DOW[d.getUTCDay()], day: d.getUTCDate(), mon: MON[d.getUTCMonth()] };
+  }
+  function slotText(date, start) {
+    var p = dateParts(date);
+    var h = function(x) { return (x % 12 || 12) + (x < 12 ? 'am' : 'pm'); };
+    return p.dow + ' ' + p.mon + ' ' + p.day + ', ' + h(start) + '–' + h(start + 1);
+  }
+
+  function renderDays() {
+    var box = document.getElementById('schedDays');
+    box.innerHTML = '';
+    var open = (sched.days || []).filter(function(d) { return d.slots.length; });
+    if (!open.length) {
+      box.innerHTML = '<p class="cmuted">No evening times open in the next two weeks. Tap “Have us call you” below and we’ll find one.</p>';
+      return;
+    }
+    if (!sched.date || !open.some(function(d) { return d.date === sched.date; })) {
+      sched.date = open[0].date;
+      sched.start = null;
+    }
+    sched.days.forEach(function(d, i) {
+      var p = dateParts(d.date);
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cday' + (d.date === sched.date ? ' on' : '');
+      b.disabled = !d.slots.length;
+      b.setAttribute('aria-label', d.label + (d.slots.length ? '' : ', full'));
+      b.innerHTML = '<small>' + (i === 0 ? 'Today' : p.dow) + '</small><b>' + p.day + '</b><small>' + p.mon + '</small>';
+      b.addEventListener('click', function() {
+        sched.date = d.date;
+        sched.start = null;
+        renderDays();
+        buzz(10);
+      });
+      box.appendChild(b);
+    });
+    renderTimes();
+  }
+
+  function renderTimes() {
+    var field = document.getElementById('schedTimeField');
+    var box = document.getElementById('schedTimes');
+    var day = (sched.days || []).filter(function(d) { return d.date === sched.date; })[0];
+    box.innerHTML = '';
+    field.hidden = !day;
+    if (day) day.slots.forEach(function(sl) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pill' + (sl.start === sched.start ? ' on' : '');
+      b.textContent = sl.label;
+      b.addEventListener('click', function() {
+        sched.start = sl.start;
+        renderTimes();
+        buzz(10);
+      });
+      box.appendChild(b);
+    });
+    updateBookBtn();
+  }
+
+  function updateBookBtn() {
+    var btn = document.getElementById('bookBtn');
+    var main = document.getElementById('bookMain');
+    var ready = sched.date && sched.start != null;
+    btn.disabled = !ready || sched.loading;
+    btn.classList.toggle('ready', !!ready && val('f_address').length >= 6);
+    if (!sched.loading) main.textContent = ready ? 'Get paid ' + slotText(sched.date, sched.start) : 'Pick a day and time';
+  }
+
+  function loadSlots() {
+    return fetch('/api/slots').then(function(r) {
+      if (!r.ok) throw new Error('slots');
+      return r.json();
+    }).then(function(b) {
+      sched.days = b.days || [];
+      renderDays();
+    }).catch(function() {
+      document.getElementById('schedDays').innerHTML = '<p class="cmuted">Couldn’t load times. Tap “Have us call you” below, or call <a href="tel:6472044200" style="color:var(--green);">(647) 204-4200</a>.</p>';
+    });
+  }
+
+  document.getElementById('getPaidBtn').addEventListener('click', function() {
+    if (!quote) return;
+    document.getElementById('schedAmount').textContent = offerText(quote.offer, quote.offer_high);
+    track('schedule_opened', { offer: quote.offer, offer_high: quote.offer_high, id: quote.id });
+    show('schedule');
+    if (!sched.days) loadSlots();
+  });
+  document.getElementById('schedBack').addEventListener('click', function() { show('result'); });
+  document.getElementById('f_address').addEventListener('input', updateBookBtn);
+
+  document.getElementById('bookBtn').addEventListener('click', function() {
+    if (!quote || !sched.date || sched.start == null) return;
+    var errEl = document.getElementById('bookError');
+    var address = val('f_address');
+    if (address.length < 6) {
+      errEl.textContent = 'Where should the tow truck go? Add the street address.';
+      document.getElementById('f_address').focus();
+      return;
+    }
+    errEl.textContent = '';
+    var btn = this;
+    var when = slotText(sched.date, sched.start);
+    sched.loading = true;
+    btn.disabled = true;
+    document.getElementById('bookMain').textContent = 'Booking…';
+    var p = lastPayload || {};
+    fetch('/api/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: quote.id, date: sched.date, start: sched.start, address: address,
+        email: p.email || '', name: p.name || '', phone: p.phone || '',
+        car: [p.year, p.make, p.model].filter(Boolean).join(' '),
+        offer: quote.offer, offer_high: quote.offer_high
+      })
+    }).then(function(r) {
+      return r.json().then(function(b) { return { status: r.status, body: b }; });
+    }).then(function(res) {
+      sched.loading = false;
+      if (res.status === 409) {
+        // Someone (or our calendar) took that time in the meantime.
+        sched.days = res.body.days || sched.days;
+        sched.start = null;
+        renderDays();
+        errEl.textContent = 'That time just got taken. Pick another one.';
+        track('pickup_slot_taken', { id: quote.id });
+        return;
+      }
+      if (res.status !== 200) throw new Error('book failed');
+      if (typeof gtag === 'function') {
+        gtag('event', 'offer_accepted', { value: quote.offer, currency: 'CAD', send_to: 'G-Y42H4S5V5G' });
+      }
+      offerResolved = false;
+      resolveOffer('offer_accepted', { id: quote.id, via: 'schedule', pickup_date: sched.date, pickup_hour: sched.start });
+      track('pickup_scheduled', { id: quote.id, offer: quote.offer, pickup_date: sched.date, pickup_hour: sched.start });
+      document.getElementById('doneTitle').textContent = 'You’re getting paid 🎉';
+      document.getElementById('doneMsg').textContent = when + ' at ' + address +
+        '. Have the ownership and keys ready. We’ll text you to confirm' + (p.email ? ', and a calendar invite is in your email.' : '.');
+      show('done');
+      setTimeout(function() { confetti(1.6); buzz([20, 60, 20, 60, 30]); }, reduceMotion ? 0 : 120);
+    }).catch(function() {
+      sched.loading = false;
+      updateBookBtn();
+      track('pickup_schedule_failed', { id: quote.id });
+      errEl.textContent = "That didn't go through. Try again, or call (647) 204-4200.";
     });
   });
 

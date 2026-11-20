@@ -595,8 +595,10 @@
           <li>Cash in hand at pickup</li>
           <li>We handle the paperwork</li>
         </ul>
-        <button type="button" class="btn-primary calc-accept" id="acceptBtn">Accept My Offer</button>
-        <p class="form-error" id="acceptError"></p>
+        <button type="button" class="btn-primary calc-accept calc-getpaid" id="getPaidBtn">
+          <span class="gp-main">Get Paid 💵</span>
+          <span class="gp-sub">Pick an evening, we show up with cash 🙂</span>
+        </button>
         <p class="form-note" id="resultNote">No obligation. Offer holds when the car matches your description.</p>
         <div class="cdecline" id="declineBox">
           <button type="button" class="cdecline-toggle" id="declineToggle">Not ready yet?</button>
@@ -613,11 +615,45 @@
         </div>
       </div>
 
+      <!-- SCHEDULE: picking a pickup time is accepting the offer -->
+      <div class="cpane csched" data-pane="schedule">
+        <span class="offer-label">Get paid</span>
+        <h3>When should we bring your <span id="schedAmount"></span>?</h3>
+        <ol class="chow">
+          <li><b>Pick an evening</b> below.</li>
+          <li><b>Our tow truck shows up</b> and takes a 2-minute look at the car.</li>
+          <li><b>You get paid on the spot</b> and we tow it away. Free.</li>
+        </ol>
+        <div class="field">
+          <span class="field-label">Day</span>
+          <div class="cdays" id="schedDays" role="listbox" aria-label="Pickup day"><p class="cmuted">Checking our calendar…</p></div>
+        </div>
+        <div class="field" id="schedTimeField" hidden>
+          <span class="field-label">Time <span class="cmuted">(1-hour window)</span></span>
+          <div class="pill-row" id="schedTimes"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Pickup address</span>
+          <input type="text" id="f_address" class="cinput" maxlength="160" placeholder="123 Main St, Scarborough" autocomplete="street-address">
+        </div>
+        <button type="button" class="btn-primary calc-accept calc-getpaid" id="bookBtn" disabled>
+          <span class="gp-main" id="bookMain">Pick a day and time</span>
+          <span class="gp-sub">Yes, I'd like to get money on this day 🙂</span>
+        </button>
+        <p class="form-error" id="bookError"></p>
+        <p class="form-note">No obligation, nothing to pay. Plans change? Text <a href="sms:6472044200" style="color:var(--green);">(647) 204-4200</a> and we'll move it.</p>
+        <div class="cdecline csched-alt">
+          <button type="button" class="cdecline-toggle" id="schedBack">Back to my offer</button>
+          <button type="button" class="cdecline-toggle" id="acceptBtn">None of these work? Have us call you</button>
+        </div>
+        <p class="form-error" id="acceptError"></p>
+      </div>
+
       <!-- DONE -->
       <div class="cpane cdone" data-pane="done">
         <div class="tick">✓</div>
-        <h3>Offer accepted: <span id="doneAmount"></span></h3>
-        <p>We'll call or text you shortly to book your free pickup.</p>
+        <h3 id="doneTitle">Offer accepted: <span id="doneAmount"></span></h3>
+        <p id="doneMsg">We'll call or text you shortly to book your free pickup.</p>
         <p class="cdone-sub">In a hurry? Call <a href="tel:6472044200" style="color:var(--green);">(647) 204-4200</a>.</p>
       </div>
     </div>
@@ -671,7 +707,7 @@
       </div>
       <div class="step">
         <h3>Schedule Pickup</h3>
-        <p>Accept our offer and pick a time that works for you, even same-day. We send a tow truck to your location, completely free.</p>
+        <p>Like the offer? Pick an evening that works for you, right on the site. We send a tow truck to your location, completely free.</p>
       </div>
       <div class="step">
         <h3>Get Paid</h3>
