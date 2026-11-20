@@ -1,5 +1,8 @@
 // The offer screen's "Get paid" step: the customer picks a pickup time and
-// that counts as accepting the offer. POST { id, date, start, address, email? }.
+// that counts as accepting the offer.
+//   GET  -> free times: { days: [{ date, label, slots: [{ start, label }] }] }
+//   POST { id, date, start, address, email? } -> books one
+// One file for both because Vercel Hobby allows 12 functions.
 //
 // Moves the lead to Appointment Scheduled, saves the address, stops the
 // follow-ups, emails calendar invites (customer if we have an email, team
@@ -16,8 +19,18 @@ const BUSINESS_PHONE = '(647) 204-4200';
 const BOOKED_NOTE = 'Booked a pickup on the website';
 
 module.exports = async (req, res) => {
+  if (req.method === 'GET') {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const { days } = await siteSlots();
+      return res.status(200).json({ days });
+    } catch (err) {
+      console.error('slots failed:', err && err.message);
+      return res.status(500).json({ error: 'could not load times' });
+    }
+  }
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+    res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: 'method not allowed' });
   }
   if (throttled(req, 10, 60 * 1000)) return res.status(429).json({ error: 'slow down' });

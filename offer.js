@@ -872,7 +872,7 @@
 
   // ── Get paid: pick a pickup time ────────────────────────────────────────
   // Picking a time is accepting the offer (POST /api/book). Times come from
-  // /api/slots: evenings that don't clash with the team calendar.
+  // GET /api/book: evenings that don't clash with the team calendar.
   var sched = { days: null, date: null, start: null, loading: false };
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -948,7 +948,7 @@
   }
 
   function loadSlots() {
-    return fetch('/api/slots').then(function(r) {
+    return fetch('/api/book').then(function(r) {
       if (!r.ok) throw new Error('slots');
       return r.json();
     }).then(function(b) {
