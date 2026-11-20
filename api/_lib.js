@@ -182,7 +182,7 @@ const AIRTABLE_LEAD_FIELDS = {
   // Where the lead came from (track.js on the site, or the call sheet's question).
   channel: 'Channel',
   // Written by the call sheet (/call). The pickup time lives on Google Calendar.
-  address: 'Pickup Address', notes: 'Call Notes',
+  address: 'Pickup Address', notes: 'Notes', // was "Call Notes" until Nov 2026
 };
 
 // Pipeline Stage. Every lead starts at "New lead" (website quote or phone call,

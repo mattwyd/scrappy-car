@@ -149,7 +149,9 @@ textarea.cinput { resize: vertical; min-height: 84px; }
 .kread span { color: var(--green-lt); }
 .krange {
   -webkit-appearance: none; appearance: none; width: 100%; height: 8px; margin: .2rem 0;
-  border-radius: 50px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 50px; border: 1px solid var(--border);
+  background: linear-gradient(90deg, var(--green-dk), var(--green-lt)) 0 0 / var(--fill, 50%) 100% no-repeat, var(--bg3);
+  box-shadow: 0 0 12px rgba(57,211,83,.25);
   outline: none; cursor: pointer;
 }
 .krange::-webkit-slider-thumb {
@@ -292,6 +294,34 @@ textarea.cinput { resize: vertical; min-height: 84px; }
 .calc-getpaid .gp-sub { font-size: .8rem; font-weight: 600; opacity: .75; }
 .calc-getpaid:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
 
+/* booking under the offer */
+.chow-line { font-size: .85rem; color: var(--muted); margin: .9rem 0 0; }
+.chow-line span { color: var(--green-lt); font-weight: 900; margin: 0 .2rem; }
+.cbook { text-align: left; margin: 1.4rem 0 .2rem; padding: 1.1rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; }
+.cquick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.cquick > p { grid-column: 1 / -1; margin: 0; }
+.cqslot {
+  display: flex; flex-direction: column; align-items: center; gap: .1rem; min-width: 0;
+  padding: .7rem .3rem; border-radius: 12px; cursor: pointer; font: inherit; color: var(--text);
+  background: var(--bg3); border: 1px solid var(--border); transition: background .15s, border-color .15s;
+}
+.cqslot small { font-size: .72rem; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.cqslot b { font-size: 1rem; font-weight: 900; color: var(--white); white-space: nowrap; }
+.cqslot:hover { border-color: var(--green); background: rgba(57,211,83,.08); }
+.cqslot.on { background: linear-gradient(135deg, var(--green-dk), var(--green)); border-color: var(--green); box-shadow: 0 4px 20px rgba(57,211,83,.35); }
+.cqslot.on small, .cqslot.on b { color: #000; }
+.cmore { display: block; margin: .6rem auto 0; }
+.cfull { margin-top: .8rem; display: grid; gap: .8rem; }
+.cfull .pill-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+.cfull .pill { justify-content: center; padding: .7rem .4rem; white-space: nowrap; }
+.nw { white-space: nowrap; }
+.pill.taken { opacity: .35; cursor: not-allowed; text-decoration: line-through; }
+.pill.taken:hover { background: rgba(57,211,83,.06); border-color: var(--border); }
+.cbook-field { margin: 1rem 0 0; }
+.cbook .calc-getpaid { margin-top: 1.1rem; }
+#declineBox { display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+#declineBox .form-error { margin: 0; }
+
 /* schedule pane */
 .csched h3 { font-size: 1.35rem; color: var(--white); margin: .2rem 0 1rem; line-height: 1.25; }
 .chow { list-style: none; counter-reset: chow; margin: 0 0 1.5rem; padding: .9rem 1rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; }
@@ -316,9 +346,12 @@ textarea.cinput { resize: vertical; min-height: 84px; }
 .cday.on small, .cday.on b { color: #000; }
 .cday:disabled { opacity: .3; cursor: not-allowed; }
 .cday:disabled b { text-decoration: line-through; }
-#schedTimes .pill { flex: 1 1 calc(50% - .6rem); justify-content: center; }
-.csched-alt { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem 1.2rem; }
 @media (max-width: 420px) {
   .cdays { gap: .25rem; }
   .cday b { font-size: .95rem; }
+}
+.cbook .form-error:empty, #declineBox .form-error:empty { display: none; }
+@media (max-width: 420px) {
+  .cbook { padding: .9rem .75rem; }
+  .cqslot b { font-size: .95rem; }
 }

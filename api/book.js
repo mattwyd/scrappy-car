@@ -9,7 +9,7 @@
 // always) and alerts the team. Like the quote, it never fails because of
 // Airtable or email: whatever didn't save goes in the alert.
 const {
-  clean, readBody, notify, throttled, offerText, airtable, updateAirtableLead,
+  clean, readBody, notify, throttled, offerText, airtable, writeAirtableLead,
   AIRTABLE_LEAD_FIELDS: F, AIRTABLE_LEADS_TABLE_ID: TABLE, STAGE, ACCEPTED_NOTE, leadUrl,
 } = require('./_lib');
 const cal = require('./_calendar');
@@ -80,7 +80,9 @@ module.exports = async (req, res) => {
       // Never move a lead backwards (or out of Lost) from the website.
       if (!f[F.stage] || f[F.stage] === STAGE.lead) fields[F.stage] = STAGE.booked;
       if (email && !f[F.email]) fields[F.email] = email;
-      await updateAirtableLead(id, fields);
+      // Skips (and reports) any field the table doesn't have rather than failing.
+      const { skipped } = await writeAirtableLead(id, fields);
+      if (skipped.length) warnings.push(`Airtable has no ${skipped.join(', ')} field, so that part is only in this email.`);
     } catch (err) {
       console.error('book airtable failed:', err && err.message, id);
       warnings.push(`Airtable not updated (${String(err && err.message).slice(0, 120)}). Set the lead to Appointment Scheduled by hand.`);
@@ -111,7 +113,7 @@ module.exports = async (req, res) => {
           location: address,
           description: [
             `We're coming to pick up your ${car} and pay you${range ? ` (offer: ${range})` : ''}.`,
-            'Please have the ownership and the keys ready.',
+            'Please have the ownership ready (and the keys, if you have them).',
             `Need another time? Call or text ${BUSINESS_PHONE}.`,
             'https://scrappycar.ca',
           ].join('\n'),

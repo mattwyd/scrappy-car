@@ -512,13 +512,6 @@
               <button type="button" class="pill" data-value="heavy">Flaking / significant</button>
             </div>
           </div>
-          <div class="field" data-field="keys">
-            <span class="field-label">Do you have the keys?</span>
-            <div class="pill-row" data-group="keys">
-              <button type="button" class="pill" data-value="yes">Yes</button>
-              <button type="button" class="pill" data-value="no">No</button>
-            </div>
-          </div>
           <div class="field" data-field="photos">
             <span class="field-label">Photos <span class="cmuted">(optional, speeds up pickup)</span></span>
             <label class="cdrop" for="f_photos">
@@ -585,22 +578,42 @@
         <p class="cstage" id="valuingStage">Looking up your vehicle…</p>
       </div>
 
-      <!-- RESULT -->
+      <!-- RESULT: the offer, and booking a pickup time right under it.
+           Picking a time is accepting the offer. -->
       <div class="cpane cresult" data-pane="result">
         <span class="offer-label">Your instant cash offer</span>
         <span class="offer-amount" id="resultAmount">$0</span>
         <p class="cresult-sub" id="resultVehicle"></p>
-        <ul class="cincludes">
-          <li>Free towing anywhere in Scarborough &amp; the GTA</li>
-          <li>Cash in hand at pickup</li>
-          <li>We handle the paperwork</li>
-        </ul>
-        <button type="button" class="btn-primary calc-accept calc-getpaid" id="getPaidBtn">
-          <span class="gp-main">Get Paid 💵</span>
-          <span class="gp-sub">Pick an evening, we show up with cash 🙂</span>
-        </button>
+        <p class="chow-line">We show up <span>→</span> 2-minute look at the car <span>→</span> you get paid, we tow it free</p>
+
+        <div class="cbook">
+          <span class="field-label">When should we come?</span>
+          <div class="cquick" id="quickSlots"><p class="cmuted">Checking our calendar…</p></div>
+          <button type="button" class="cdecline-toggle cmore" id="moreTimes" hidden>More times</button>
+          <div class="cfull" id="fullCal" hidden>
+            <div class="cdays" id="schedDays" role="listbox" aria-label="Pickup day"></div>
+            <div class="pill-row" id="schedTimes"></div>
+          </div>
+          <div class="field cbook-field">
+            <span class="field-label">Pickup address</span>
+            <input type="text" id="f_address" class="cinput" maxlength="160" placeholder="123 Main St, Scarborough" autocomplete="street-address">
+          </div>
+          <div class="field cbook-field" id="bookEmailField" hidden>
+            <span class="field-label">Email <span class="cmuted">(optional, for a calendar invite)</span></span>
+            <input type="email" id="f_book_email" class="cinput" maxlength="120" placeholder="you@email.com" autocomplete="email">
+          </div>
+          <button type="button" class="btn-primary calc-accept calc-getpaid" id="bookBtn" disabled>
+            <span class="gp-main" id="bookMain">Get Paid 💵</span>
+            <span class="gp-sub" id="bookSub">Yes, I'd like to get money on this day 🙂</span>
+          </button>
+          <p class="form-error" id="bookError"></p>
+        </div>
+
         <p class="form-note" id="resultNote">No obligation. Offer holds when the car matches your description.</p>
+        <p class="form-note">Plans change? Text <a href="sms:6472044200" style="color:var(--green);">(647) 204-4200</a> and we'll move it.</p>
         <div class="cdecline" id="declineBox">
+          <button type="button" class="cdecline-toggle" id="acceptBtn">No time works? Have us call you</button>
+          <p class="form-error" id="acceptError"></p>
           <button type="button" class="cdecline-toggle" id="declineToggle">Not ready yet?</button>
           <div class="cdecline-panel" id="declinePanel" hidden>
             <span class="cdecline-q">What's holding you back?</span>
@@ -613,40 +626,6 @@
           </div>
           <p class="cdecline-thanks" id="declineThanks" hidden>Thanks, that helps. Questions? Call or text <a href="tel:6472044200">(647) 204-4200</a>, any time.</p>
         </div>
-      </div>
-
-      <!-- SCHEDULE: picking a pickup time is accepting the offer -->
-      <div class="cpane csched" data-pane="schedule">
-        <span class="offer-label">Get paid</span>
-        <h3>When should we bring your <span id="schedAmount"></span>?</h3>
-        <ol class="chow">
-          <li><b>Pick an evening</b> below.</li>
-          <li><b>Our tow truck shows up</b> and takes a 2-minute look at the car.</li>
-          <li><b>You get paid on the spot</b> and we tow it away. Free.</li>
-        </ol>
-        <div class="field">
-          <span class="field-label">Day</span>
-          <div class="cdays" id="schedDays" role="listbox" aria-label="Pickup day"><p class="cmuted">Checking our calendar…</p></div>
-        </div>
-        <div class="field" id="schedTimeField" hidden>
-          <span class="field-label">Time <span class="cmuted">(1-hour window)</span></span>
-          <div class="pill-row" id="schedTimes"></div>
-        </div>
-        <div class="field">
-          <span class="field-label">Pickup address</span>
-          <input type="text" id="f_address" class="cinput" maxlength="160" placeholder="123 Main St, Scarborough" autocomplete="street-address">
-        </div>
-        <button type="button" class="btn-primary calc-accept calc-getpaid" id="bookBtn" disabled>
-          <span class="gp-main" id="bookMain">Pick a day and time</span>
-          <span class="gp-sub">Yes, I'd like to get money on this day 🙂</span>
-        </button>
-        <p class="form-error" id="bookError"></p>
-        <p class="form-note">No obligation, nothing to pay. Plans change? Text <a href="sms:6472044200" style="color:var(--green);">(647) 204-4200</a> and we'll move it.</p>
-        <div class="cdecline csched-alt">
-          <button type="button" class="cdecline-toggle" id="schedBack">Back to my offer</button>
-          <button type="button" class="cdecline-toggle" id="acceptBtn">None of these work? Have us call you</button>
-        </div>
-        <p class="form-error" id="acceptError"></p>
       </div>
 
       <!-- DONE -->

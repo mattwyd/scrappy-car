@@ -66,24 +66,44 @@ async function busyBetween(from, to) {
 
 const overlaps = (busy, start, end) => busy.some(([s, e]) => s < end && e > start);
 
+// Some free windows are shown as booked anyway so the calendar doesn't look
+// empty (Matt, Nov 20): one window on about 1 day in 4, never a day's last
+// free window. Picked by a hash of the date, so the same one stays taken
+// across reloads and the booking check agrees with the page.
+const FILLER_DAY_RATE = 0.25;
+function fillerPick(date, free) {
+  if (free.length < 2) return undefined;
+  const h = require('crypto').createHash('sha256').update(`sc-filler1:${date}`).digest();
+  if (h.readUInt32BE(0) / 0xffffffff >= FILLER_DAY_RATE) return undefined;
+  return free[h.readUInt32BE(4) % free.length];
+}
+
 // The pickup times the website offers: SITE_WINDOWS on each of the next
 // SITE_DAYS days, minus anything past, too soon, or clashing with the calendar.
+// taken lists the windows shown greyed out (calendar clashes and filler).
 async function siteSlots(now = Date.now()) {
   const cal = require('./_calendar');
   const dates = cal.nextDates(cal.SITE_DAYS);
   const from = new Date(cal.slotStart(dates[0], 0));
   const to = new Date(cal.slotStart(dates[dates.length - 1], 23) + 3600000);
   const { checked, busy, reason } = await busyBetween(from, to);
-  const days = dates.map((date) => ({
-    date,
-    label: cal.dayLabel(date),
-    slots: cal.SITE_WINDOWS
-      .filter((h) => {
-        const s = cal.slotStart(date, h);
-        return s - now >= cal.SITE_LEAD_MS && !overlaps(busy, s, s + cal.WINDOW_HOURS * 3600000);
-      })
-      .map((h) => ({ start: h, label: cal.windowLabel(h) })),
-  }));
+  const days = dates.map((date) => {
+    const upcoming = cal.SITE_WINDOWS.filter((h) => cal.slotStart(date, h) - now >= cal.SITE_LEAD_MS);
+    const free = upcoming.filter((h) => {
+      const s = cal.slotStart(date, h);
+      return !overlaps(busy, s, s + cal.WINDOW_HOURS * 3600000);
+    });
+    // Chosen from the whole evening so it doesn't move as today's hours pass.
+    const pickH = fillerPick(date, cal.SITE_WINDOWS);
+    const fake = free.length > 1 && free.includes(pickH) ? pickH : undefined;
+    const open = free.filter((h) => h !== fake);
+    return {
+      date,
+      label: cal.dayLabel(date),
+      slots: open.map((h) => ({ start: h, label: cal.windowLabel(h) })),
+      taken: upcoming.filter((h) => !open.includes(h)).map((h) => ({ start: h, label: cal.windowLabel(h) })),
+    };
+  });
   return { checked, reason, days };
 }
 

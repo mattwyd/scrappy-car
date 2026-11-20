@@ -5,7 +5,7 @@
   var calc = document.getElementById('calc');
   if (!calc) return;
 
-  var picked = { running: null, condition: null, keys: null };
+  var picked = { running: null, condition: null };
   var modelTypes = {};
   var photos = [];
   var quote = null;
@@ -160,8 +160,8 @@
   // Year and odometer start filled in with defaults, so they don't count toward
   // progress (the meter starts at 0%) and only get a check mark once changed.
   var PREFILLED = { year: true, km: true };
-  var REQUIRED = ['make', 'model', 'running', 'condition', 'keys', 'name', 'city', 'phone'];
-  var STEP_FIELDS = { '1': ['year', 'make', 'model'], '2': ['running', 'condition', 'keys'], '3': ['name', 'city', 'phone'] };
+  var REQUIRED = ['make', 'model', 'running', 'condition', 'name', 'city', 'phone'];
+  var STEP_FIELDS = { '1': ['year', 'make', 'model'], '2': ['running', 'condition'], '3': ['name', 'city', 'phone'] };
   var progFill = document.getElementById('cprogFill');
   var progLabel = document.getElementById('cprogLabel');
   var cheerEl = document.getElementById('calcCheer');
@@ -176,7 +176,6 @@
       km: !!val('f_km'),
       running: !!picked.running,
       condition: !!picked.condition,
-      keys: !!picked.keys,
       photos: photos.length > 0,
       name: val('f_name').length >= 1,
       city: !!val('f_city'),
@@ -366,6 +365,8 @@
       var v = Math.round(range.value / 10000) * 10000;
       hidden.value = String(v);
       read.textContent = Number(v).toLocaleString('en-CA') + (v >= Number(range.max) ? '+' : '');
+      // Fill the track up to the thumb, like a progress bar.
+      range.style.setProperty('--fill', ((range.value - range.min) / (range.max - range.min) * 100) + '%');
     }
     range.addEventListener('input', update);
     update();
@@ -574,7 +575,7 @@
     '1': function() { return 'Takes about a minute. Free towing is always included.'; },
     '2': function() {
       var v = [val('f_year'), val('f_make'), val('f_model')].filter(Boolean).join(' ');
-      return v ? 'Nice. ' + v + ' locked in. Three quick taps about its condition.' : 'Three quick taps about its condition.';
+      return v ? 'Nice. ' + v + ' locked in. Two quick taps about its condition.' : 'Two quick taps about its condition.';
     },
     '3': function() { return 'Last step. Where should we send the tow truck?'; },
   };
@@ -630,7 +631,6 @@
     if (step === '3') {
       if (!picked.running) return fail('Let us know if it starts and drives.', 'running');
       if (!picked.condition) return fail('Pick the overall condition.', 'condition');
-      if (!picked.keys) return fail('Let us know if you have the keys.', 'keys');
     }
     return true;
   }
@@ -687,7 +687,6 @@
       km: val('f_km'),
       is_running: picked.running === 'yes',
       condition: picked.condition,
-      has_keys: picked.keys === 'yes',
       city: val('f_city'),
       name: val('f_name'),
       email: val('f_email'),
@@ -701,6 +700,7 @@
     };
 
     var animation = runValuing();
+    loadSlots(); // pickup times load while the offer is priced
     var request = fetch('/api/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -736,6 +736,7 @@
         });
       }
       show('result');
+      prepBooking();
       countUp(document.getElementById('resultAmount'), res.body.offer, res.body.offer_high);
       document.getElementById('resultNote').textContent = res.body.offer_high > res.body.offer
         ? 'No obligation. Where you land in the range depends on the rims, the catalytic converter and how the car looks in person.'
@@ -864,118 +865,184 @@
     }).catch(function() {
       track('offer_accept_failed', { offer: quote.offer, id: quote.id });
       btn.disabled = false;
-      btn.textContent = 'None of these work? Have us call you';
+      btn.textContent = 'No time works? Have us call you';
       document.getElementById('acceptError').textContent = "That didn't go through. Try again.";
     });
   });
 
 
-  // ── Get paid: pick a pickup time ────────────────────────────────────────
+  // ── Get paid: book a pickup time right under the offer ──────────────────
   // Picking a time is accepting the offer (POST /api/book). Times come from
-  // GET /api/book: evenings that don't clash with the team calendar.
-  var sched = { days: null, date: null, start: null, loading: false };
+  // GET /api/book: evenings that don't clash with the team calendar. The offer
+  // screen shows the soonest few times with the first one picked; "More times"
+  // opens the full two-week calendar.
+  var sched = { days: null, date: null, start: null, loading: false, fetching: null, full: false };
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var QUICK = 3;
   function dateParts(iso) {
     var d = new Date(iso + 'T12:00:00Z');
     return { dow: DOW[d.getUTCDay()], day: d.getUTCDate(), mon: MON[d.getUTCMonth()] };
   }
-  function slotText(date, start) {
+  function hourRange(start) {
+    var ap = function(x) { return x < 12 ? 'am' : 'pm'; };
+    var n = function(x) { return x % 12 || 12; };
+    // "6–7pm", or "11am–12pm" when it crosses noon.
+    return n(start) + (ap(start) === ap(start + 1) ? '' : ap(start)) + '–' + n(start + 1) + ap(start + 1);
+  }
+  // "Today", "Tomorrow" or "Sun Nov 22".
+  function dayName(date) {
+    var i = (sched.days || []).map(function(d) { return d.date; }).indexOf(date);
+    if (i === 0) return 'Today';
+    if (i === 1) return 'Tomorrow';
     var p = dateParts(date);
-    var h = function(x) { return (x % 12 || 12) + (x < 12 ? 'am' : 'pm'); };
-    return p.dow + ' ' + p.mon + ' ' + p.day + ', ' + h(start) + '–' + h(start + 1);
+    return p.dow + ' ' + p.mon + ' ' + p.day;
+  }
+  function slotText(date, start) { return dayName(date) + ', ' + hourRange(start); }
+
+  // The soonest free times, at most two a day so it spans a couple of days.
+  function quickSlots() {
+    var out = [];
+    (sched.days || []).some(function(d) {
+      d.slots.slice(0, 2).forEach(function(sl) { if (out.length < QUICK) out.push({ date: d.date, start: sl.start }); });
+      return out.length >= QUICK;
+    });
+    return out;
   }
 
-  function renderDays() {
+  function renderBooking() {
+    var quick = document.getElementById('quickSlots');
+    var more = document.getElementById('moreTimes');
+    quick.innerHTML = '';
+    if (!sched.days) {
+      quick.innerHTML = '<p class="cmuted">Checking our calendar…</p>';
+      more.hidden = true;
+      return updateBookBtn();
+    }
+    var list = quickSlots();
+    if (!list.length) {
+      quick.innerHTML = '<p class="cmuted">No evening times open in the next two weeks. Tap “Have us call you” below and we’ll find one.</p>';
+      more.hidden = true;
+      return updateBookBtn();
+    }
+    if (sched.date == null) { sched.date = list[0].date; sched.start = list[0].start; }
+    list.forEach(function(q) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cqslot' + (q.date === sched.date && q.start === sched.start ? ' on' : '');
+      b.innerHTML = '<small>' + dayName(q.date) + '</small><b>' + hourRange(q.start) + '</b>';
+      b.addEventListener('click', function() { pick(q.date, q.start, 'quick'); });
+      quick.appendChild(b);
+    });
+    more.hidden = false;
+    more.textContent = sched.full ? 'Fewer times' : 'More times';
+    document.getElementById('fullCal').hidden = !sched.full;
+    if (sched.full) renderCalendar();
+    updateBookBtn();
+  }
+
+  function pick(date, start, how) {
+    sched.date = date;
+    sched.start = start;
+    document.getElementById('bookError').textContent = '';
+    track('pickup_time_picked', { how: how, pickup_date: date, pickup_hour: start });
+    buzz(10);
+    renderBooking();
+  }
+
+  // Full calendar: a two-week grid of days, then that day's times.
+  var calDay = null;
+  function renderCalendar() {
     var box = document.getElementById('schedDays');
+    var times = document.getElementById('schedTimes');
     box.innerHTML = '';
-    var open = (sched.days || []).filter(function(d) { return d.slots.length; });
-    if (!open.length) {
-      box.innerHTML = '<p class="cmuted">No evening times open in the next two weeks. Tap “Have us call you” below and we’ll find one.</p>';
-      return;
-    }
-    if (!sched.date || !open.some(function(d) { return d.date === sched.date; })) {
-      sched.date = open[0].date;
-      sched.start = null;
-    }
+    times.innerHTML = '';
+    if (!calDay) calDay = sched.date;
     sched.days.forEach(function(d, i) {
       var p = dateParts(d.date);
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'cday' + (d.date === sched.date ? ' on' : '');
+      b.className = 'cday' + (d.date === calDay ? ' on' : '');
       b.disabled = !d.slots.length;
       b.setAttribute('aria-label', d.label + (d.slots.length ? '' : ', full'));
       b.innerHTML = '<small>' + (i === 0 ? 'Today' : p.dow) + '</small><b>' + p.day + '</b><small>' + p.mon + '</small>';
-      b.addEventListener('click', function() {
-        sched.date = d.date;
-        sched.start = null;
-        renderDays();
-        buzz(10);
-      });
+      b.addEventListener('click', function() { calDay = d.date; buzz(10); renderCalendar(); });
       box.appendChild(b);
     });
-    renderTimes();
-  }
-
-  function renderTimes() {
-    var field = document.getElementById('schedTimeField');
-    var box = document.getElementById('schedTimes');
-    var day = (sched.days || []).filter(function(d) { return d.date === sched.date; })[0];
-    box.innerHTML = '';
-    field.hidden = !day;
-    if (day) day.slots.forEach(function(sl) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'pill' + (sl.start === sched.start ? ' on' : '');
-      b.textContent = sl.label;
-      b.addEventListener('click', function() {
-        sched.start = sl.start;
-        renderTimes();
-        buzz(10);
+    var day = sched.days.filter(function(d) { return d.date === calDay; })[0];
+    if (!day) return;
+    // Open and taken windows in time order; taken ones show greyed out.
+    day.slots.map(function(sl) { return { sl: sl, taken: false }; })
+      .concat((day.taken || []).map(function(sl) { return { sl: sl, taken: true }; }))
+      .sort(function(a, b) { return a.sl.start - b.sl.start; })
+      .forEach(function(x) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'pill' + (x.taken ? ' taken' : '') + (!x.taken && day.date === sched.date && x.sl.start === sched.start ? ' on' : '');
+        b.disabled = x.taken;
+        b.textContent = hourRange(x.sl.start);
+        if (x.taken) b.title = 'Booked';
+        if (!x.taken) b.addEventListener('click', function() { pick(day.date, x.sl.start, 'calendar'); });
+        times.appendChild(b);
       });
-      box.appendChild(b);
-    });
-    updateBookBtn();
   }
 
   function updateBookBtn() {
     var btn = document.getElementById('bookBtn');
     var main = document.getElementById('bookMain');
-    var ready = sched.date && sched.start != null;
+    var ready = sched.date != null && sched.start != null;
     btn.disabled = !ready || sched.loading;
-    btn.classList.toggle('ready', !!ready && val('f_address').length >= 6);
-    if (!sched.loading) main.textContent = ready ? 'Get paid ' + slotText(sched.date, sched.start) : 'Pick a day and time';
+    btn.classList.toggle('ready', ready && val('f_address').length >= 6);
+    if (!sched.loading) {
+      if (ready) main.innerHTML = 'Get paid ' + dayName(sched.date) + ', <span class="nw">' + hourRange(sched.start) + '</span>';
+      else main.textContent = 'Get Paid 💵';
+    }
   }
 
   function loadSlots() {
-    return fetch('/api/book').then(function(r) {
+    if (sched.fetching) return sched.fetching;
+    sched.fetching = fetch('/api/book').then(function(r) {
       if (!r.ok) throw new Error('slots');
       return r.json();
     }).then(function(b) {
       sched.days = b.days || [];
-      renderDays();
+      renderBooking();
     }).catch(function() {
-      document.getElementById('schedDays').innerHTML = '<p class="cmuted">Couldn’t load times. Tap “Have us call you” below, or call <a href="tel:6472044200" style="color:var(--green);">(647) 204-4200</a>.</p>';
+      sched.fetching = null;
+      document.getElementById('quickSlots').innerHTML = '<p class="cmuted">Couldn’t load times. Tap “Have us call you” below, or call <a href="tel:6472044200" style="color:var(--green);">(647) 204-4200</a>.</p>';
     });
+    return sched.fetching;
   }
 
-  document.getElementById('getPaidBtn').addEventListener('click', function() {
-    if (!quote) return;
-    document.getElementById('schedAmount').textContent = offerText(quote.offer, quote.offer_high);
-    track('schedule_opened', { offer: quote.offer, offer_high: quote.offer_high, id: quote.id });
-    show('schedule');
-    if (!sched.days) loadSlots();
+  // Called when the offer shows: times are usually already loaded by then.
+  function prepBooking() {
+    var p = lastPayload || {};
+    document.getElementById('bookEmailField').hidden = !!p.email;
+    renderBooking();
+    loadSlots();
+  }
+
+  document.getElementById('moreTimes').addEventListener('click', function() {
+    sched.full = !sched.full;
+    calDay = sched.date;
+    if (sched.full) track('schedule_more_times', { id: quote && quote.id });
+    renderBooking();
   });
-  document.getElementById('schedBack').addEventListener('click', function() { show('result'); });
   document.getElementById('f_address').addEventListener('input', updateBookBtn);
 
   document.getElementById('bookBtn').addEventListener('click', function() {
-    if (!quote || !sched.date || sched.start == null) return;
+    if (!quote || sched.date == null || sched.start == null) return;
     var errEl = document.getElementById('bookError');
     var address = val('f_address');
     if (address.length < 6) {
       errEl.textContent = 'Where should the tow truck go? Add the street address.';
       document.getElementById('f_address').focus();
+      return;
+    }
+    var p = lastPayload || {};
+    var email = p.email || val('f_book_email');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent = 'That email looks off. Fix it or leave it blank.';
       return;
     }
     errEl.textContent = '';
@@ -984,13 +1051,12 @@
     sched.loading = true;
     btn.disabled = true;
     document.getElementById('bookMain').textContent = 'Booking…';
-    var p = lastPayload || {};
     fetch('/api/book', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: quote.id, date: sched.date, start: sched.start, address: address,
-        email: p.email || '', name: p.name || '', phone: p.phone || '',
+        email: email || '', name: p.name || '', phone: p.phone || '',
         car: [p.year, p.make, p.model].filter(Boolean).join(' '),
         offer: quote.offer, offer_high: quote.offer_high
       })
@@ -1001,9 +1067,9 @@
       if (res.status === 409) {
         // Someone (or our calendar) took that time in the meantime.
         sched.days = res.body.days || sched.days;
-        sched.start = null;
-        renderDays();
-        errEl.textContent = 'That time just got taken. Pick another one.';
+        sched.date = sched.start = null;
+        renderBooking();
+        errEl.textContent = 'That time just got taken. We picked the next one, or choose another.';
         track('pickup_slot_taken', { id: quote.id });
         return;
       }
@@ -1013,10 +1079,10 @@
       }
       offerResolved = false;
       resolveOffer('offer_accepted', { id: quote.id, via: 'schedule', pickup_date: sched.date, pickup_hour: sched.start });
-      track('pickup_scheduled', { id: quote.id, offer: quote.offer, pickup_date: sched.date, pickup_hour: sched.start });
+      track('pickup_scheduled', { id: quote.id, offer: quote.offer, pickup_date: sched.date, pickup_hour: sched.start, emailed: !!email });
       document.getElementById('doneTitle').textContent = 'You’re getting paid 🎉';
       document.getElementById('doneMsg').textContent = when + ' at ' + address +
-        '. Have the ownership and keys ready. We’ll text you to confirm' + (p.email ? ', and a calendar invite is in your email.' : '.');
+        '. Have the ownership ready (and the keys, if you have them). We’ll text you to confirm' + (email ? ', and a calendar invite is in your email.' : '.');
       show('done');
       setTimeout(function() { confetti(1.6); buzz([20, 60, 20, 60, 30]); }, reduceMotion ? 0 : 120);
     }).catch(function() {
