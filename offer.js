@@ -176,7 +176,6 @@
       km: !!val('f_km'),
       running: !!picked.running,
       condition: !!picked.condition,
-      photos: photos.length > 0,
       name: val('f_name').length >= 1,
       city: !!val('f_city'),
       phone: phone.length >= 10 && phone.length <= 11,
@@ -552,8 +551,15 @@
       });
     })).then(function() {
       label.textContent = photos.length ? photos.length + ' photo' + (photos.length > 1 ? 's' : '') + ' added. Tap to add more' : 'Tap to add photos';
-      if (photos.length) track('photo_uploaded', { count: photos.length });
-      scheduleRefresh();
+      if (photos.length) track('photo_uploaded', { count: photos.length, after_booking: true });
+      // Photos come after booking now, so attach them to the booked lead.
+      if (photos.length && quote && quote.id) {
+        fetch('/api/book', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'photos', id: quote.id, photos: photos })
+        }).catch(function() {});
+      }
     });
   });
 
@@ -871,6 +877,75 @@
   });
 
 
+  // ── Pickup address: suggestions from Photon (OpenStreetMap, free, no key),
+  // limited to the GTA. Free text still works if nothing matches.
+  (function addressSuggest() {
+    var box = document.getElementById('cb_address');
+    var input = document.getElementById('f_address');
+    var panel = box.querySelector('.cbox-panel');
+    var timer = null, seq = 0, items = [], active = -1;
+    function close() { box.classList.remove('open'); active = -1; }
+    function label(p) {
+      var street = [p.housenumber, p.street || p.name].filter(Boolean).join(' ');
+      var town = [p.city || p.district || p.county, p.postcode].filter(Boolean).join(' ');
+      return { street: street, town: town, full: [street, p.city || p.district, 'ON', p.postcode].filter(Boolean).join(', ').replace(', ON, ', ', ON ') };
+    }
+    function render() {
+      panel.innerHTML = '';
+      if (!items.length) return close();
+      items.forEach(function(it, i) {
+        var o = document.createElement('div');
+        o.className = 'cbox-opt' + (i === active ? ' active' : '');
+        o.setAttribute('role', 'option');
+        o.innerHTML = '<span></span><span class="cbox-tag"></span>';
+        o.firstChild.textContent = it.street;
+        o.lastChild.textContent = it.town;
+        o.addEventListener('mousedown', function(e) { e.preventDefault(); choose(i); });
+        panel.appendChild(o);
+      });
+      box.classList.add('open');
+    }
+    function choose(i) {
+      input.value = items[i].full;
+      items = [];
+      close();
+      track('address_suggestion_picked', {});
+      input.dispatchEvent(new Event('input'));
+    }
+    input.addEventListener('input', function(e) {
+      if (!e.isTrusted) return; // our own dispatch after choosing
+      clearTimeout(timer);
+      var q = input.value.trim();
+      if (q.length < 4) { items = []; return close(); }
+      timer = setTimeout(function() {
+        var mine = ++seq;
+        fetch('https://photon.komoot.io/api/?limit=5&lang=en&lat=43.78&lon=-79.18&bbox=-80.1,43.35,-78.5,44.35&q=' + encodeURIComponent(q))
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (mine !== seq) return;
+            var seen = {};
+            items = (d.features || []).map(function(f) { return label(f.properties || {}); })
+              .filter(function(it) { return it.street && !seen[it.full] && (seen[it.full] = true); });
+            active = -1;
+            render();
+          })
+          .catch(function() {});
+      }, 250);
+    });
+    input.addEventListener('keydown', function(e) {
+      if (!box.classList.contains('open')) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        render();
+      } else if (e.key === 'Enter' && active >= 0) {
+        e.preventDefault();
+        choose(active);
+      } else if (e.key === 'Escape') close();
+    });
+    input.addEventListener('blur', function() { setTimeout(close, 120); });
+  })();
+
   // ── Get paid: book a pickup time right under the offer ──────────────────
   // Picking a time is accepting the offer (POST /api/book). Times come from
   // GET /api/book: evenings that don't clash with the team calendar. The offer
@@ -1083,6 +1158,7 @@
       document.getElementById('doneTitle').textContent = 'You’re getting paid 🎉';
       document.getElementById('doneMsg').textContent = when + ' at ' + address +
         '. Have the ownership ready (and the keys, if you have them). We’ll text you to confirm' + (email ? ', and a calendar invite is in your email.' : '.');
+      document.getElementById('donePhotos').hidden = false;
       show('done');
       setTimeout(function() { confetti(1.6); buzz([20, 60, 20, 60, 30]); }, reduceMotion ? 0 : 120);
     }).catch(function() {

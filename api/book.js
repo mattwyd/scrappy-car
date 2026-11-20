@@ -2,6 +2,7 @@
 // that counts as accepting the offer.
 //   GET  -> free times: { days: [{ date, label, slots: [{ start, label }] }] }
 //   POST { id, date, start, address, email? } -> books one
+//   POST { type: 'photos', id, photos: [blob urls] } -> adds photos to the lead
 // One file for both because Vercel Hobby allows 12 functions.
 //
 // Moves the lead to Appointment Scheduled, saves the address, stops the
@@ -38,6 +39,22 @@ module.exports = async (req, res) => {
   const b = readBody(req);
   const id = clean(b.id, 40);
   if (!id || !/^(rec[a-zA-Z0-9]+|local-[a-z0-9]+)$/.test(id)) return res.status(400).json({ error: 'quote id required' });
+
+  // Photos added on the done screen after booking: save them on the lead.
+  if (b.type === 'photos') {
+    const urls = (Array.isArray(b.photos) ? b.photos : [])
+      .filter((u) => typeof u === 'string' && /^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\//.test(u)).slice(0, 6);
+    if (!urls.length || !id.startsWith('rec') || !process.env.AIRTABLE_TOKEN) return res.status(200).json({ ok: true });
+    try {
+      const f = (await airtable(`/${TABLE}/${encodeURIComponent(id)}`)).fields || {};
+      const have = String(f[F.photos] || '').split(/\s+/).filter(Boolean);
+      const all = [...new Set([...have, ...urls])];
+      if (all.length > have.length) await writeAirtableLead(id, { [F.photos]: all.join('\n') });
+    } catch (err) {
+      console.error('book photos failed:', err && err.message, id);
+    }
+    return res.status(200).json({ ok: true });
+  }
   const address = clean(b.address, 160);
   if (!address || address.length < 6) return res.status(400).json({ error: 'address' });
   let email = clean(b.email, 120);
